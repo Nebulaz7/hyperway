@@ -4,7 +4,7 @@ pragma solidity ^0.8.28;
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
-import {IXCM} from "./interfaces/IXCM.sol";
+import {IXcm} from "./interfaces/IXCM.sol";
 
 /// @title HyperwayMarketplace
 /// @author Hyperway Team — Polkadot Solidity Hackathon (Track 2)
@@ -18,9 +18,11 @@ contract HyperwayMarketplace is ReentrancyGuard, Ownable, Pausable {
     //  Constants
     // ──────────────────────────────────────────────
 
-    /// @notice XCM precompile address on Polkadot Hub
+    /// @notice XCM precompile address on Polkadot Hub / Asset Hub
+    /// @dev Confirmed from official Polkadot Cookbook:
+    ///      https://github.com/brunopgalvao/recipe-contracts-precompile-example
     address public constant XCM_PRECOMPILE =
-        0x0000000000000000000000000000000000000804;
+        0x00000000000000000000000000000000000a0000;
 
     /// @notice Basis-point denominator (10_000 = 100%)
     uint256 public constant BPS_DENOMINATOR = 10_000;
@@ -313,32 +315,49 @@ contract HyperwayMarketplace is ReentrancyGuard, Ownable, Pausable {
         return jobId;
     }
 
-    /// @notice Submit a job using XCM cross-chain payment (Track 2 requirement)
-    /// @dev Executes an XCM message via the XCM precompile to receive cross-chain funds,
-    ///      then creates the job. The XCM message should encode a WithdrawAsset + DepositAsset
-    ///      sequence that deposits tokens into this contract.
+    // ════════════════════════════════════════════════
+    //  XCM CROSS-CHAIN PAYMENTS (Track 2)
+    // ════════════════════════════════════════════════
+
+    /// @notice Submit a job using XCM cross-chain payment
+    /// @dev Executes a SCALE-encoded XCM message via the XCM precompile.
+    ///      The XCM message should encode instructions that deposit native tokens
+    ///      into this contract's address. Typical flow:
+    ///
+    ///      1. Frontend constructs an XCM V5 message with instructions:
+    ///         - WithdrawAsset (from buyer's sovereign account on source chain)
+    ///         - DepositAsset  (into this contract's address on Polkadot Hub)
+    ///      2. This function executes the XCM message via precompile
+    ///      3. Checks that the contract actually received funds
+    ///      4. Creates the job with escrowed payment
+    ///
+    ///      XCM messages MUST be VersionedXcm::V5 (prefix 0x05).
+    ///
     /// @param specCID IPFS content identifier of the job specification
     /// @param computeUnits Estimated compute time in seconds
-    /// @param xcmMessage SCALE-encoded XCM message for cross-chain token transfer
+    /// @param xcmMessage SCALE-encoded XCM V5 message for cross-chain token transfer
     /// @return jobId The unique identifier for this job
     function submitJobWithXCM(
         bytes32 specCID,
         uint256 computeUnits,
         bytes calldata xcmMessage
-    ) external whenNotPaused returns (uint256) {
-        // Call the XCM precompile to execute the cross-chain transfer
-        IXCM xcm = IXCM(XCM_PRECOMPILE);
+    ) external whenNotPaused nonReentrant returns (uint256) {
+        // Record balance before XCM execution
+        uint256 balanceBefore = address(this).balance;
 
         // Estimate weight for the XCM message
-        uint64 weight = xcm.weighMessage(xcmMessage);
+        IXcm xcm = IXcm(XCM_PRECOMPILE);
+        IXcm.Weight memory weight = xcm.weighMessage(xcmMessage);
 
-        // Execute the XCM message (transfers tokens from source parachain → this contract)
-        bool success = xcm.execute(xcmMessage, weight);
-        require(success, "XCM execution failed");
+        // Execute the XCM message (transfers tokens from source → this contract)
+        xcm.execute(xcmMessage, weight);
 
-        // After XCM execution, the contract should have received funds.
-        // For the MVP, we record the job with a zero native payment and
-        // track the XCM-deposited amount separately via events.
+        // Calculate how much was deposited by the XCM execution
+        uint256 balanceAfter = address(this).balance;
+        uint256 xcmPayment = balanceAfter - balanceBefore;
+        require(xcmPayment > 0, "XCM: no funds received");
+
+        // Create the job with the XCM-deposited payment
         uint256 jobId = nextJobId++;
 
         jobs[jobId] = Job({
@@ -347,7 +366,7 @@ contract HyperwayMarketplace is ReentrancyGuard, Ownable, Pausable {
             provider: address(0),
             specCID: specCID,
             resultCID: bytes32(0),
-            paymentAmount: 0, // XCM payment tracked off-chain for MVP
+            paymentAmount: xcmPayment,
             computeUnits: computeUnits,
             status: JobStatus.PENDING,
             createdAt: block.timestamp,
@@ -357,10 +376,38 @@ contract HyperwayMarketplace is ReentrancyGuard, Ownable, Pausable {
         });
 
         buyerJobs[msg.sender].push(jobId);
+
         totalJobsCreated++;
+        totalVolumeEscrowed += xcmPayment;
 
         emit XCMJobSubmitted(jobId, msg.sender, specCID);
+        emit JobSubmitted(jobId, msg.sender, specCID, xcmPayment);
         return jobId;
+    }
+
+    /// @notice Send an XCM message to another chain (e.g., notify Asset Hub)
+    /// @dev Allows the contract to dispatch cross-chain messages for:
+    ///      - Returning excess funds to a parachain
+    ///      - Notifying other chains of job completion
+    ///      - Cross-chain governance actions (future)
+    /// @param destination SCALE-encoded MultiLocation of target chain
+    /// @param message SCALE-encoded XCM V5 message
+    function sendXCMMessage(
+        bytes calldata destination,
+        bytes calldata message
+    ) external onlyOwner {
+        IXcm(XCM_PRECOMPILE).send(destination, message);
+    }
+
+    /// @notice Estimate the weight of an XCM message (view function for frontend)
+    /// @param message SCALE-encoded XCM V5 message
+    /// @return refTime Estimated reference time weight
+    /// @return proofSize Estimated proof size weight
+    function estimateXCMWeight(
+        bytes calldata message
+    ) external view returns (uint64 refTime, uint64 proofSize) {
+        IXcm.Weight memory weight = IXcm(XCM_PRECOMPILE).weighMessage(message);
+        return (weight.refTime, weight.proofSize);
     }
 
     /// @notice Claim (assign) a pending job as a provider
