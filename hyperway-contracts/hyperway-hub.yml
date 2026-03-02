@@ -1,0 +1,13 @@
+# hyperway-hub.yml
+endpoint: wss://polkadot-hub-testnet-rpc.polkadot.io # Or the mainnet RPC
+mock-signature-host: true
+build-block-mode: Instant # Blocks build as soon as you send a transaction
+
+import-storage:
+  System:
+    Account:
+      # Giving Alice (5GrwvaEF...) 10,000 DOT for testing
+      - - - 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY
+        - providers: 1
+          data:
+            free: "10000000000000000000" # 10k DOT (10 decimals)
