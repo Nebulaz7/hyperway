@@ -909,7 +909,7 @@ contract HyperwayMarketplaceTest is Test {
 
     function _registerProvider(address provider) internal {
         vm.prank(provider);
-        marketplace.registerProvider{value: STAKE_AMOUNT}(GPU_SPwECS);
+        marketplace.registerProvider{value: STAKE_AMOUNT}(GPU_SPECS);
     }
 
     function _submitJob(address buyer) internal returns (uint256) {
