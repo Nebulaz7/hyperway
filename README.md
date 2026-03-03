@@ -524,24 +524,24 @@ This project qualifies for **Track 2: PVM Smart Contracts** under the category:
 **Day 1-2: Smart Contract Foundation**
 
 - [x] Review architecture and design decisions
-- [ ] Set up Foundry project structure
-- [ ] Write core data structures (Provider, Job, JobStatus)
-- [ ] Implement provider registration with DOT staking
-- [ ] Write basic tests
+- [x] Set up Foundry project structure
+- [x] Write core data structures (Provider, Job, JobStatus)
+- [x] Implement provider registration with DOT staking
+- [x] Write basic tests
 - **Deliverable:** `ComputeMarketplace.sol` with provider registry
 
 **Day 3-4: Job Management Functions**
 
-- [ ] Implement job submission with payment escrow
-- [ ] Add job assignment logic
-- [ ] Create proof submission function
-- [ ] Add slashing mechanism for failed jobs
-- [ ] Write comprehensive tests
+- [x] Implement job submission with payment escrow
+- [x] Add job assignment logic
+- [x] Create proof submission function
+- [x] Add slashing mechanism for failed jobs
+- [x] Write comprehensive tests
 - **Deliverable:** Complete job lifecycle in smart contract
 
 **Day 5: Frontend Setup**
 
-- [ ] Create Next.js 15 project with TypeScript
+- [x] Create Next.js 15 project with TypeScript
 - [ ] Install and configure Wagmi + Viem
 - [ ] Set up Polkadot Hub chain configuration
 - [ ] Create wallet connection component
