@@ -1,13 +1,36 @@
+"use client";
 import React from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 const Navbar = () => {
+  const router = useRouter();
   return (
-    <div className="flex items-center justify-between p-4 bg-gray-800 text-white">
-      <h2>Hyperway</h2>
-      <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-        connect app
-      </button>
-    </div>
+    <header className="pb-2 sticky top-0 w-full shrink-0 bg-primary/50 backdrop-blur-xl z-30">
+      <div className="flex justify-between items-center gap-5 w-full max-w-7xl px-2 md:px-6 h-[3.5rem] mx-auto">
+        <div
+          role="link"
+          tabIndex={0}
+          className="select-none cursor-pointer outline-0"
+          onClick={() => router.push("/")}
+        >
+          <h1 className="text-[24px] ">
+            Hyperway{" "}
+            <span className="text-sm text-white  p-[6px] border-solid border-[1.3px] border-white rounded-full">
+              Beta
+            </span>
+          </h1>
+        </div>
+        <div className="flex items-center space-x-4">
+          <Link
+            href="/connect"
+            className="appearance-none cursor-pointer px-6 py-1 font-heading rounded-full text-sm bg-white/10 border border-white/20 hover:bg-white/20 focus-visible:bg-white/20 text-white backdrop-blur-sm transition-all duration-200"
+          >
+            Connect App
+          </Link>
+        </div>
+      </div>
+    </header>
   );
 };
 
