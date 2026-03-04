@@ -11,11 +11,11 @@ export default function ConnectPage() {
   const router = useRouter();
 
   // Redirect to dashboard once connected
-  //   useEffect(() => {
-  //     if (isConnected) {
-  //       router.push("/dashboard");
-  //     }
-  //   }, [isConnected, router]);
+  useEffect(() => {
+    if (isConnected) {
+      router.push("/dashboard");
+    }
+  }, [isConnected, router]);
 
   return (
     <main className="min-h-screen bg-[#050505] text-white flex flex-col items-center justify-center p-6">
