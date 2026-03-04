@@ -541,11 +541,11 @@ This project qualifies for **Track 2: PVM Smart Contracts** under the category:
 
 **Day 5: Frontend Setup**
 
-- [x] Create Next.js 15 project with TypeScript
-- [ ] Install and configure Wagmi + Viem
-- [ ] Set up Polkadot Hub chain configuration
-- [ ] Create wallet connection component
-- [ ] Set up Tailwind CSS and project structure
+- [x] Create Next.js 16 project with TypeScript
+- [x] Install and configure Wagmi + Viem
+- [x] Set up Polkadot Hub chain configuration
+- [x] Create wallet connection component
+- [x] Set up Tailwind CSS and project structure
 - **Deliverable:** Working wallet connection page
 
 **Day 6-7: Deploy & Integrate**
