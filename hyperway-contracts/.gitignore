@@ -14,3 +14,4 @@ node_modules
 
 # Dotenv file
 .env
+foundry_nightly_linux_amd64.tar.gz
