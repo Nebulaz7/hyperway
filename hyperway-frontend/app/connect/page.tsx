@@ -49,15 +49,82 @@ export default function ConnectPage() {
 
         <div className="flex justify-center mb-8">
           <ConnectButton.Custom>
-            {({ openConnectModal, connectModalOpen }) => (
-              <button
-                onClick={openConnectModal}
-                disabled={connectModalOpen}
-                className="w-full py-4 bg-white text-black font-black rounded-xl hover:bg-gray-200 transition-all active:scale-95 text-lg"
-              >
-                {connectModalOpen ? "Connecting..." : "Connect Wallet"}
-              </button>
-            )}
+            {({
+              account,
+              chain,
+              openAccountModal,
+              openChainModal,
+              openConnectModal,
+              authenticationStatus,
+              mounted,
+            }) => {
+              const ready = mounted && authenticationStatus !== "loading";
+              const connected =
+                ready &&
+                account &&
+                chain &&
+                (!authenticationStatus ||
+                  authenticationStatus === "authenticated");
+
+              return (
+                <div
+                  className="w-full"
+                  {...(!ready && {
+                    "aria-hidden": true,
+                    style: {
+                      opacity: 0,
+                      pointerEvents: "none",
+                      userSelect: "none",
+                    },
+                  })}
+                >
+                  {(() => {
+                    if (!connected) {
+                      return (
+                        <button
+                          onClick={openConnectModal}
+                          type="button"
+                          className="w-full py-4 bg-white text-black font-black rounded-xl hover:bg-gray-200 transition-all active:scale-95 text-lg"
+                        >
+                          Connect Wallet
+                        </button>
+                      );
+                    }
+
+                    if (chain.unsupported) {
+                      return (
+                        <button
+                          onClick={openChainModal}
+                          type="button"
+                          className="w-full py-4 bg-red-500 text-white font-black rounded-xl hover:bg-red-600 transition-all text-lg"
+                        >
+                          Wrong Network
+                        </button>
+                      );
+                    }
+
+                    return (
+                      <div className="flex flex-col gap-3">
+                        <button
+                          onClick={() => router.push("/dashboard")}
+                          type="button"
+                          className="w-full py-4 bg-pink-600 text-white font-black rounded-xl hover:bg-pink-700 transition-all text-lg"
+                        >
+                          Go to Console
+                        </button>
+                        <button
+                          onClick={openAccountModal}
+                          type="button"
+                          className="text-gray-500 text-sm hover:text-white transition"
+                        >
+                          Disconnect {account.displayName}
+                        </button>
+                      </div>
+                    );
+                  })()}
+                </div>
+              );
+            }}
           </ConnectButton.Custom>
         </div>
 
