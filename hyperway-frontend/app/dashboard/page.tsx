@@ -1,9 +1,19 @@
 "use client";
 
-import { useAccount, useBalance, useDisconnect } from "wagmi";
+import {
+  useAccount,
+  useBalance,
+  useDisconnect,
+  useReadContract,
+  useWriteContract,
+  useWaitForTransactionReceipt,
+} from "wagmi";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { HYPERWAY_ABI } from "@/constants/abis";
+import { HYPERWAY_CONTRACT_ADDRESS } from "@/constants";
+import { stringToHex, parseEther } from "viem";
 
 export default function DashboardPage() {
   const { address, isConnected, chain } = useAccount();
@@ -15,6 +25,46 @@ export default function DashboardPage() {
   const { data: balance } = useBalance({
     address: address,
   });
+
+  // Contract reads
+  const { data: fee, isLoading: isFeeLoading } = useReadContract({
+    address: HYPERWAY_CONTRACT_ADDRESS as `0x${string}`,
+    abi: HYPERWAY_ABI,
+    functionName: "platformFeeBps",
+  });
+
+  const { data: totalListings } = useReadContract({
+    address: HYPERWAY_CONTRACT_ADDRESS as `0x${string}`,
+    abi: HYPERWAY_ABI,
+    functionName: "providerCount",
+  });
+
+  // Write contract
+  const {
+    data: hash,
+    writeContract,
+    isPending,
+    error: writeError,
+  } = useWriteContract();
+
+  const { isLoading: isConfirming, isSuccess: isConfirmed } =
+    useWaitForTransactionReceipt({ hash });
+
+  useEffect(() => {
+    if (writeError) {
+      console.error("Deployment Error Details:", writeError);
+    }
+  }, [writeError]);
+
+  const handleRegisterGpu = () => {
+    writeContract({
+      address: HYPERWAY_CONTRACT_ADDRESS as `0x${string}`,
+      abi: HYPERWAY_ABI,
+      functionName: "registerProvider",
+      args: [stringToHex("NVIDIA RTX 4090 - 24GB VRAM")],
+      value: parseEther("1"), // 1 PAS stake
+    });
+  };
 
   // Handle hydration and protection
   useEffect(() => {
@@ -71,7 +121,7 @@ export default function DashboardPage() {
         </header>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
           <div className="bg-[#111] border border-white/5 p-8 rounded-3xl group hover:border-pink-500/30 transition-colors">
             <h3 className="text-gray-400 text-sm font-semibold uppercase tracking-wider mb-2">
               Available Balance
@@ -101,15 +151,52 @@ export default function DashboardPage() {
               Inactive
             </div>
           </div>
+
+          <div className="bg-[#111] border border-white/5 p-8 rounded-3xl group hover:border-purple-500/30 transition-colors">
+            <h3 className="text-gray-400 text-sm font-semibold uppercase tracking-wider mb-2">
+              Platform Fee
+            </h3>
+            <div className="flex items-baseline gap-2">
+              <span className="text-4xl font-bold text-white">
+                {/* Use a fallback value while fee is undefined or loading */}
+                {fee ? `${Number(fee) / 100}` : "0.0"}
+              </span>
+              <span className="text-purple-400 font-bold">%</span>
+            </div>
+          </div>
+
+          <div className="bg-[#111] border border-white/5 p-8 rounded-3xl group hover:border-purple-500/30 transition-colors">
+            <h3 className="text-gray-400 text-sm font-semibold uppercase tracking-wider mb-2">
+              Active Listings
+            </h3>
+            <p className="text-4xl font-bold">
+              {totalListings?.toString() ?? "0"}
+            </p>
+          </div>
         </div>
 
         {/* Dashboard Content */}
         <div className="bg-[#0a0a0a] border border-white/5 rounded-[2.5rem] overflow-hidden">
           <div className="p-8 border-b border-white/5 flex justify-between items-center">
             <h2 className="text-xl font-bold">Compute Instances</h2>
-            <button className="bg-pink-600 hover:bg-pink-700 text-white text-sm font-bold px-6 py-2.5 rounded-xl transition-all">
-              + Lease GPU
-            </button>
+            <div className="flex flex-col items-end gap-1">
+              <button
+                onClick={handleRegisterGpu}
+                disabled={isPending || isConfirming}
+                className="bg-pink-600 hover:bg-pink-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-bold px-6 py-2.5 rounded-xl transition-all"
+              >
+                {isPending
+                  ? "Confirm in Wallet..."
+                  : isConfirming
+                    ? "Deploying Node..."
+                    : "+ Register GPU"}
+              </button>
+              {isConfirmed && (
+                <p className="text-green-500 text-xs">
+                  Node Registered Successfully!
+                </p>
+              )}
+            </div>
           </div>
 
           <div className="p-16 text-center">
