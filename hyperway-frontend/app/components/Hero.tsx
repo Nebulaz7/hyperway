@@ -8,15 +8,7 @@ const Hero = () => {
       {/* Windowed Container for Larger Devices */}
       <div className="relative w-full max-w-5xl bg-purple-800 mx-auto rounded-none md:rounded-3xl overflow-hidden shadow-none md:shadow-2xl">
         {/* Background Image */}
-        <div className="absolute inset-0 w-full h-full">
-          <Image
-            src="/hero-bg.png"
-            alt="Hero Background"
-            fill
-            className="object-cover "
-            priority
-          />
-        </div>
+        <div className="absolute inset-0 w-full h-full"></div>
 
         {/* Content Section */}
         <div className="relative z-10 flex items-center justify-center min-h-screen md:min-h-[80vh] p-6 md:p-12">
