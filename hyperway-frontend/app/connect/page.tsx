@@ -43,8 +43,8 @@ export default function ConnectPage() {
           Connect to Hyperway
         </h1>
         <p className="text-gray-400 mb-10 leading-relaxed">
-          Access the Passet Hub P2P GPU marketplace. Securely link your wallet
-          to lease compute or register your hardware.
+          Access the Polkadot Hub Testnet P2P GPU marketplace. Securely link
+          your wallet to lease compute or register your hardware.
         </p>
 
         <div className="flex justify-center mb-8">
