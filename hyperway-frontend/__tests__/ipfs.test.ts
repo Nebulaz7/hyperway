@@ -96,9 +96,24 @@ describe("exists", () => {
   });
 
   it("should return false for a non-existent CID", async () => {
-    // Random CID that almost certainly doesn't exist
+    // Mock fetch so no real network call is made
+    const fetchSpy = jest
+      .spyOn(global, "fetch")
+      .mockResolvedValueOnce({ ok: false } as Response);
+
     const result = await exists("QmNonExistentCid99999999999");
     expect(result).toBe(false);
+    fetchSpy.mockRestore();
+  });
+
+  it("should return true when the CID exists", async () => {
+    const fetchSpy = jest
+      .spyOn(global, "fetch")
+      .mockResolvedValueOnce({ ok: true } as Response);
+
+    const result = await exists("QmRealCid123");
+    expect(result).toBe(true);
+    fetchSpy.mockRestore();
   });
 });
 
