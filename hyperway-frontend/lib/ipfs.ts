@@ -207,18 +207,17 @@ export async function uploadFile(
   const pinName = name || file.name || "hyperway-upload";
 
   const response = await withRetry(async () => {
-    let upload = pinata.upload.file(file).addMetadata({
-      name: pinName,
-      keyValues: {
+    return pinata.upload.public
+      .file(file)
+      .name(pinName)
+      .keyvalues({
         app: "hyperway",
         type: "file",
         ...metadata,
-      },
-    });
-    return upload;
+      });
   }, `uploadFile(${pinName})`);
 
-  const cid = response.IpfsHash;
+  const cid = response.cid;
   const bytes32 = await cidToBytes32(cid);
 
   return {
@@ -257,17 +256,17 @@ export async function uploadJSON(
   const jsonString = JSON.stringify(data);
 
   const response = await withRetry(async () => {
-    return pinata.upload.json(data).addMetadata({
-      name: pinName,
-      keyValues: {
+    return pinata.upload.public
+      .json(data)
+      .name(pinName)
+      .keyvalues({
         app: "hyperway",
         type: "json",
         ...metadata,
-      },
-    });
+      });
   }, `uploadJSON(${pinName})`);
 
-  const cid = response.IpfsHash;
+  const cid = response.cid;
   const bytes32 = await cidToBytes32(cid);
 
   return {
