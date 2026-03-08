@@ -550,31 +550,31 @@ This project qualifies for **Track 2: PVM Smart Contracts** under the category:
 
 **Day 6-7: Deploy & Integrate**
 
-- [ ] Deploy contract to Polkadot Hub testnet
-- [ ] Verify contract on block explorer
-- [ ] Create contract interaction hooks
-- [ ] Test end-to-end wallet → contract flow
+- [x] Deploy contract to Polkadot Hub testnet
+- [x] Verify contract on block explorer
+- [x] Create contract interaction hooks
+- [x] Test end-to-end wallet → contract flow
 - **Deliverable:** Deployed contract + frontend can call it
 
 #### Backend Dev Tasks (15 hours)
 
 **Day 1-2: Supabase Setup**
 
-- [ ] Create Supabase project
-- [ ] Run database schema migration
-- [ ] Set up Row Level Security policies
-- [ ] Configure real-time subscriptions
-- [ ] Create test data seed script
+- [x] Create Supabase project
+- [x] Run database schema migration
+- [x] Set up Row Level Security policies
+- [x] Configure real-time subscriptions
+- [x] Create test data seed script
 - **Deliverable:** Live database with all tables
 
 **Day 3-4: IPFS Utilities**
 
-- [ ] Create Pinata account and get API keys
-- [ ] Build `uploadToIPFS()` function for files
-- [ ] Build `uploadJSON()` for metadata
-- [ ] Build `downloadFromIPFS()` function
-- [ ] Add error handling and retry logic
-- [ ] Write unit tests
+- [x] Create Pinata account and get API keys
+- [x] Build `uploadToIPFS()` function for files
+- [x] Build `uploadJSON()` for metadata
+- [x] Build `downloadFromIPFS()` function
+- [x] Add error handling and retry logic
+- [x] Write unit tests
 - **Deliverable:** Reusable IPFS library (`lib/ipfs.ts`)
 
 **Day 5-7: Event Indexer Foundation**
