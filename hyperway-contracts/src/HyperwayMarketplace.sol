@@ -399,13 +399,13 @@ contract HyperwayMarketplace is ReentrancyGuard, Ownable, Pausable {
         IXcm(XCM_PRECOMPILE).send(destination, message);
     }
 
-    /// @notice Estimate the weight of an XCM message (view function for frontend)
+    /// @notice Estimate the weight of an XCM message (for frontend)
     /// @param message SCALE-encoded XCM V5 message
     /// @return refTime Estimated reference time weight
     /// @return proofSize Estimated proof size weight
     function estimateXCMWeight(
         bytes calldata message
-    ) external view returns (uint64 refTime, uint64 proofSize) {
+    ) external returns (uint64 refTime, uint64 proofSize) {
         IXcm.Weight memory weight = IXcm(XCM_PRECOMPILE).weighMessage(message);
         return (weight.refTime, weight.proofSize);
     }
@@ -430,11 +430,10 @@ contract HyperwayMarketplace is ReentrancyGuard, Ownable, Pausable {
     /// @notice Submit proof of completed compute work and receive payment
     /// @param jobId The job that was completed
     /// @param resultCID IPFS content identifier of the compute results
-    /// @param proof Verification proof data (challenge-response hash for MVP)
     function submitProof(
         uint256 jobId,
         bytes32 resultCID,
-        bytes calldata proof
+        bytes calldata /* proof */
     ) external nonReentrant jobExists(jobId) {
         Job storage job = jobs[jobId];
         if (msg.sender != job.provider) revert NotAssignedProvider();
@@ -603,8 +602,6 @@ contract HyperwayMarketplace is ReentrancyGuard, Ownable, Pausable {
         } else {
             // Provider wins — mark as completed (payment already released in submitProof)
             job.status = JobStatus.COMPLETED;
-
-            Provider storage provider = providers[job.provider];
             _updateReputation(job.provider, true);
         }
 
@@ -700,7 +697,10 @@ contract HyperwayMarketplace is ReentrancyGuard, Ownable, Pausable {
 
     /// @dev Update a provider's reputation score based on job outcome
     ///      Score = (completedJobs / totalJobs) * 100
-    function _updateReputation(address providerAddr, bool success) internal {
+    function _updateReputation(
+        address providerAddr,
+        bool /* success */
+    ) internal {
         Provider storage p = providers[providerAddr];
         uint256 total = p.totalJobsCompleted + p.totalJobsFailed;
 

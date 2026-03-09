@@ -52,5 +52,5 @@ interface IXcm {
     /// @return weight The estimated Weight (refTime + proofSize)
     function weighMessage(
         bytes calldata message
-    ) external view returns (Weight memory weight);
+    ) external returns (Weight memory weight);
 }

@@ -75,9 +75,9 @@ contract TestXCM is Script {
         // ── Test 4: Print selectors for manual verification ──────────────────────
         console.log("-------------------------------------------");
         console.log("Test 4 - Computed ABI selectors (for reference):");
-        bytes4 selWeigh   = bytes4(keccak256("weighMessage(bytes)"));
+        bytes4 selWeigh = bytes4(keccak256("weighMessage(bytes)"));
         bytes4 selExecute = bytes4(keccak256("execute(bytes,(uint64,uint64))"));
-        bytes4 selSend    = bytes4(keccak256("send(bytes,bytes)"));
+        bytes4 selSend = bytes4(keccak256("send(bytes,bytes)"));
         console.log("  weighMessage(bytes)          :", uint32(selWeigh));
         console.log("  execute(bytes,(uint64,uint64)):", uint32(selExecute));
         console.log("  send(bytes,bytes)             :", uint32(selSend));
@@ -88,8 +88,12 @@ contract TestXCM is Script {
             console.log("  PRECOMPILE CONFIRMED LIVE");
         } else if (codeSize > 0) {
             console.log("  DIAGNOSIS: weighMessage reverts under staticcall.");
-            console.log("  The precompile exists and targets the correct address.");
-            console.log("  weighMessage likely requires a funded execution context");
+            console.log(
+                "  The precompile exists and targets the correct address."
+            );
+            console.log(
+                "  weighMessage likely requires a funded execution context"
+            );
             console.log("  (not available in forge script simulation mode).");
             console.log("  Your contract is correct for live execution.");
         } else {
@@ -107,5 +111,107 @@ contract TestXCM is Script {
         } else {
             console.log("    unexpected return length:", data.length);
         }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  BROADCAST SCRIPT — deploys a helper contract that calls the
+//  XCM precompile from within its own execution context.
+//
+//  Why a helper contract? forge script .call() runs in local EVM
+//  simulation and never reaches the Substrate runtime. A deployed
+//  contract's transactions go through the actual Frontier EVM and
+//  hit the real precompile implementation.
+//
+//  Usage:
+//    forge script script/TestXCM.s.sol:TestXCMBroadcast \
+//      --rpc-url https://eth-rpc-testnet.polkadot.io/ \
+//      --chain-id 420420417 \
+//      --broadcast
+//
+//  OR skip the script entirely and use cast send directly:
+//    cast send 0x00000000000000000000000000000000000a0000 \
+//      "execute(bytes,(uint64,uint64))" \
+//      "0x05040b00" "(2000000000,131072)" \
+//      --rpc-url https://eth-rpc-testnet.polkadot.io/ \
+//      --private-key $PRIVATE_KEY
+// ═══════════════════════════════════════════════════════════════
+
+/// @dev Deployed on-chain; its transactions go through Substrate runtime
+///      and hit the real XCM precompile implementation.
+///      All calls use low-level .call() so forge simulation doesn't revert
+///      (the precompile only exists on-chain, not in local EVM).
+contract XCMProbe {
+    address constant XCM_PRECOMPILE =
+        0x00000000000000000000000000000000000a0000;
+
+    event WeighResult(bool success, uint64 refTime, uint64 proofSize);
+    event ExecuteResult(bool success);
+    event ProbeError(string reason);
+
+    /// @notice Call weighMessage via low-level call (won't revert if precompile missing)
+    function probeWeigh(bytes calldata message) external {
+        (bool ok, bytes memory ret) = XCM_PRECOMPILE.call(
+            abi.encodeCall(IXcm.weighMessage, (message))
+        );
+        if (ok && ret.length >= 64) {
+            (uint64 refTime, uint64 proofSize) = abi.decode(ret, (uint64, uint64));
+            emit WeighResult(true, refTime, proofSize);
+        } else {
+            emit WeighResult(false, 0, 0);
+        }
+    }
+
+    /// @notice Call execute via low-level call (won't revert if precompile missing)
+    function probeExecute(bytes calldata message) external {
+        IXcm.Weight memory weight = IXcm.Weight({
+            refTime: 2_000_000_000,
+            proofSize: 131_072
+        });
+        (bool ok,) = XCM_PRECOMPILE.call(
+            abi.encodeCall(IXcm.execute, (message, weight))
+        );
+        emit ExecuteResult(ok);
+    }
+}
+
+contract TestXCMBroadcast is Script {
+    // Official docs example: WithdrawAsset + BuyExecution + DepositAsset
+    bytes constant XCM_DOCS_EXAMPLE =
+        hex"050c000401000003008c86471301000003008c8647000d010101000000010100368e8759910dab756d344995f1d3c79374ca8f70066d3a709e48029f6bf0ee7e";
+
+    // V5 ClearOrigin — simplest valid instruction
+    bytes constant XCM_V5_CLEAR_ORIGIN = hex"05040a";
+
+    function run() external {
+        uint256 privateKey = vm.envUint("PRIVATE_KEY");
+        address caller = vm.addr(privateKey);
+
+        console.log("===========================================");
+        console.log("  HYPERWAY - XCM BROADCAST TEST");
+        console.log("===========================================");
+        console.log("Caller  :", caller);
+        console.log("Chain ID:", block.chainid);
+        console.log("Balance :", caller.balance);
+        console.log("-------------------------------------------");
+
+        // Deploy + call in a single broadcast block
+        vm.startBroadcast(privateKey);
+
+        XCMProbe probe = new XCMProbe();
+
+        // probeWeigh — emits WeighResult event on-chain
+        probe.probeWeigh(XCM_DOCS_EXAMPLE);
+
+        // probeExecute — emits ExecuteResult event on-chain
+        probe.probeExecute(XCM_V5_CLEAR_ORIGIN);
+
+        vm.stopBroadcast();
+
+        console.log("===========================================");
+        console.log("  3 txs queued: deploy + probeWeigh + probeExecute");
+        console.log("  Check events on: https://blockscout-testnet.polkadot.io");
+        console.log("  WeighResult(true, refTime>0, ...) = precompile live");
+        console.log("===========================================");
     }
 }
