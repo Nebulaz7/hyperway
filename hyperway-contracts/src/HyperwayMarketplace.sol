@@ -4,16 +4,18 @@ pragma solidity ^0.8.28;
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
+import {Context} from "@openzeppelin/contracts/utils/Context.sol";
+import {ERC2771Context} from "@openzeppelin/contracts/metatx/ERC2771Context.sol";
 import {IXcm} from "./interfaces/IXCM.sol";
 
 /// @title HyperwayMarketplace
-/// @author Hyperway Team — Polkadot Solidity Hackathon (Track 2)
+/// @author Hyperway Team — Polkadot Solidity Hackathon (Track 2 + Track 3)
 /// @notice Decentralized GPU Compute Marketplace on Polkadot Hub.
 ///         Connects AI developers needing GPU compute with providers who have spare capacity.
 ///         Uses smart contract escrow, collateral staking, proof-of-compute verification,
-///         and XCM precompiles for cross-chain payments.
+///         XCM precompiles for cross-chain payments, and ERC2771 for gasless meta-transactions.
 /// @dev Deployed on Polkadot Hub (EVM-compatible, chain ID 420420421 mainnet / 420420417 testnet).
-contract HyperwayMarketplace is ReentrancyGuard, Ownable, Pausable {
+contract HyperwayMarketplace is ERC2771Context, ReentrancyGuard, Ownable, Pausable {
     // ──────────────────────────────────────────────
     //  Constants
     // ──────────────────────────────────────────────
@@ -167,14 +169,19 @@ contract HyperwayMarketplace is ReentrancyGuard, Ownable, Pausable {
     error ProviderHasActiveJobs();
     error TransferFailed();
     error JobDoesNotExist();
+    error XCMWeighFailed();
+    error XCMExecuteFailed();
+    error XCMSendFailed();
+    error XCMNoFundsReceived();
+    error InvalidJobStatus();
 
     // ──────────────────────────────────────────────
     //  Modifiers
     // ──────────────────────────────────────────────
 
     modifier onlyActiveProvider() {
-        if (!isProvider[msg.sender]) revert NotProvider();
-        if (!providers[msg.sender].isActive) revert ProviderNotActive();
+        if (!isProvider[_msgSender()]) revert NotProvider();
+        if (!providers[_msgSender()].isActive) revert ProviderNotActive();
         _;
     }
 
@@ -188,7 +195,11 @@ contract HyperwayMarketplace is ReentrancyGuard, Ownable, Pausable {
     // ──────────────────────────────────────────────
 
     /// @param _feeRecipient Address that receives platform fees and slashed collateral
-    constructor(address _feeRecipient) Ownable(msg.sender) {
+    /// @param _trustedForwarder Address of the ERC2771 forwarder (enables gasless meta-transactions)
+    constructor(
+        address _feeRecipient,
+        address _trustedForwarder
+    ) ERC2771Context(_trustedForwarder) Ownable(msg.sender) {
         if (_feeRecipient == address(0)) revert ZeroAddress();
         feeRecipient = _feeRecipient;
     }
@@ -202,12 +213,13 @@ contract HyperwayMarketplace is ReentrancyGuard, Ownable, Pausable {
     function registerProvider(
         bytes calldata gpuSpecs
     ) external payable whenNotPaused {
-        if (isProvider[msg.sender]) revert AlreadyRegistered();
+        address sender = _msgSender();
+        if (isProvider[sender]) revert AlreadyRegistered();
         if (msg.value < minStakeAmount)
             revert InsufficientStake(msg.value, minStakeAmount);
 
-        providers[msg.sender] = Provider({
-            providerAddress: msg.sender,
+        providers[sender] = Provider({
+            providerAddress: sender,
             stakedAmount: msg.value,
             gpuSpecs: gpuSpecs,
             reputationScore: 50, // Start at neutral reputation
@@ -217,62 +229,66 @@ contract HyperwayMarketplace is ReentrancyGuard, Ownable, Pausable {
             registeredAt: block.timestamp
         });
 
-        isProvider[msg.sender] = true;
+        isProvider[sender] = true;
         providerCount++;
 
-        emit ProviderRegistered(msg.sender, msg.value, gpuSpecs);
+        emit ProviderRegistered(sender, msg.value, gpuSpecs);
     }
 
     /// @notice Add more stake to an existing provider registration
     function addStake() external payable onlyActiveProvider {
         if (msg.value == 0) revert PaymentRequired();
-        providers[msg.sender].stakedAmount += msg.value;
+        providers[_msgSender()].stakedAmount += msg.value;
     }
 
     /// @notice Deactivate provider (stops receiving new jobs)
     /// @dev Provider can only deactivate if they have no ASSIGNED jobs
     function deactivateProvider() external {
-        if (!isProvider[msg.sender]) revert NotProvider();
-        providers[msg.sender].isActive = false;
-        emit ProviderDeactivated(msg.sender);
+        address sender = _msgSender();
+        if (!isProvider[sender]) revert NotProvider();
+        providers[sender].isActive = false;
+        emit ProviderDeactivated(sender);
     }
 
     /// @notice Reactivate a previously deactivated provider
     function reactivateProvider() external {
-        if (!isProvider[msg.sender]) revert NotProvider();
-        if (providers[msg.sender].stakedAmount < minStakeAmount) {
+        address sender = _msgSender();
+        if (!isProvider[sender]) revert NotProvider();
+        if (providers[sender].stakedAmount < minStakeAmount) {
             revert InsufficientStake(
-                providers[msg.sender].stakedAmount,
+                providers[sender].stakedAmount,
                 minStakeAmount
             );
         }
-        providers[msg.sender].isActive = true;
-        emit ProviderReactivated(msg.sender);
+        providers[sender].isActive = true;
+        emit ProviderReactivated(sender);
     }
 
     /// @notice Withdraw staked DOT (only when deactivated)
     /// @dev Provider must deactivate first and have no active jobs
     function withdrawStake() external nonReentrant {
-        if (!isProvider[msg.sender]) revert NotProvider();
-        if (providers[msg.sender].isActive) revert ProviderNotActive(); // Must deactivate first
+        address sender = _msgSender();
+        if (!isProvider[sender]) revert NotProvider();
+        if (providers[sender].isActive) revert ProviderNotActive(); // Must deactivate first
 
-        uint256 amount = providers[msg.sender].stakedAmount;
+        uint256 amount = providers[sender].stakedAmount;
         if (amount == 0) revert NothingToWithdraw();
 
-        providers[msg.sender].stakedAmount = 0;
+        providers[sender].stakedAmount = 0;
 
-        (bool success, ) = payable(msg.sender).call{value: amount}("");
+        (bool success, ) = payable(sender).call{value: amount}("");
         if (!success) revert TransferFailed();
 
-        emit StakeWithdrawn(msg.sender, amount);
+        emit StakeWithdrawn(sender, amount);
     }
 
     /// @notice Update GPU specifications
     /// @param newSpecs New JSON-encoded GPU specifications
     function updateGPUSpecs(bytes calldata newSpecs) external {
-        if (!isProvider[msg.sender]) revert NotProvider();
-        providers[msg.sender].gpuSpecs = newSpecs;
-        emit GPUSpecsUpdated(msg.sender, newSpecs);
+        address sender = _msgSender();
+        if (!isProvider[sender]) revert NotProvider();
+        providers[sender].gpuSpecs = newSpecs;
+        emit GPUSpecsUpdated(sender, newSpecs);
     }
 
     // ════════════════════════════════════════════════
@@ -289,11 +305,12 @@ contract HyperwayMarketplace is ReentrancyGuard, Ownable, Pausable {
     ) external payable whenNotPaused returns (uint256) {
         if (msg.value == 0) revert PaymentRequired();
 
+        address sender = _msgSender();
         uint256 jobId = nextJobId++;
 
         jobs[jobId] = Job({
             jobId: jobId,
-            buyer: msg.sender,
+            buyer: sender,
             provider: address(0),
             specCID: specCID,
             resultCID: bytes32(0),
@@ -306,12 +323,12 @@ contract HyperwayMarketplace is ReentrancyGuard, Ownable, Pausable {
             deadline: block.timestamp + (computeUnits * 2) // 2× estimated compute time
         });
 
-        buyerJobs[msg.sender].push(jobId);
+        buyerJobs[sender].push(jobId);
 
         totalJobsCreated++;
         totalVolumeEscrowed += msg.value;
 
-        emit JobSubmitted(jobId, msg.sender, specCID, msg.value);
+        emit JobSubmitted(jobId, sender, specCID, msg.value);
         return jobId;
     }
 
@@ -345,24 +362,33 @@ contract HyperwayMarketplace is ReentrancyGuard, Ownable, Pausable {
         // Record balance before XCM execution
         uint256 balanceBefore = address(this).balance;
 
-        // Estimate weight for the XCM message
-        IXcm xcm = IXcm(XCM_PRECOMPILE);
-        IXcm.Weight memory weight = xcm.weighMessage(xcmMessage);
+        // Weigh and execute in scoped block to avoid stack-too-deep
+        {
+            // Estimate weight for the XCM message via low-level call
+            (bool weighOk, bytes memory weighRet) = XCM_PRECOMPILE.call(
+                abi.encodeCall(IXcm.weighMessage, (xcmMessage))
+            );
+            if (!weighOk || weighRet.length < 64) revert XCMWeighFailed();
+            (uint64 refTime, uint64 proofSize) = abi.decode(weighRet, (uint64, uint64));
 
-        // Execute the XCM message (transfers tokens from source → this contract)
-        xcm.execute(xcmMessage, weight);
+            // Execute the XCM message (transfers tokens from source → this contract)
+            (bool execOk, ) = XCM_PRECOMPILE.call(
+                abi.encodeCall(IXcm.execute, (xcmMessage, IXcm.Weight(refTime, proofSize)))
+            );
+            if (!execOk) revert XCMExecuteFailed();
+        }
 
         // Calculate how much was deposited by the XCM execution
-        uint256 balanceAfter = address(this).balance;
-        uint256 xcmPayment = balanceAfter - balanceBefore;
-        require(xcmPayment > 0, "XCM: no funds received");
+        uint256 xcmPayment = address(this).balance - balanceBefore;
+        if (xcmPayment == 0) revert XCMNoFundsReceived();
 
         // Create the job with the XCM-deposited payment
+        address sender = _msgSender();
         uint256 jobId = nextJobId++;
 
         jobs[jobId] = Job({
             jobId: jobId,
-            buyer: msg.sender,
+            buyer: sender,
             provider: address(0),
             specCID: specCID,
             resultCID: bytes32(0),
@@ -375,13 +401,13 @@ contract HyperwayMarketplace is ReentrancyGuard, Ownable, Pausable {
             deadline: block.timestamp + (computeUnits * 2)
         });
 
-        buyerJobs[msg.sender].push(jobId);
+        buyerJobs[sender].push(jobId);
 
         totalJobsCreated++;
         totalVolumeEscrowed += xcmPayment;
 
-        emit XCMJobSubmitted(jobId, msg.sender, specCID);
-        emit JobSubmitted(jobId, msg.sender, specCID, xcmPayment);
+        emit XCMJobSubmitted(jobId, sender, specCID);
+        emit JobSubmitted(jobId, sender, specCID, xcmPayment);
         return jobId;
     }
 
@@ -396,7 +422,10 @@ contract HyperwayMarketplace is ReentrancyGuard, Ownable, Pausable {
         bytes calldata destination,
         bytes calldata message
     ) external onlyOwner {
-        IXcm(XCM_PRECOMPILE).send(destination, message);
+        (bool ok, ) = XCM_PRECOMPILE.call(
+            abi.encodeCall(IXcm.send, (destination, message))
+        );
+        if (!ok) revert XCMSendFailed();
     }
 
     /// @notice Estimate the weight of an XCM message (for frontend)
@@ -406,8 +435,11 @@ contract HyperwayMarketplace is ReentrancyGuard, Ownable, Pausable {
     function estimateXCMWeight(
         bytes calldata message
     ) external returns (uint64 refTime, uint64 proofSize) {
-        IXcm.Weight memory weight = IXcm(XCM_PRECOMPILE).weighMessage(message);
-        return (weight.refTime, weight.proofSize);
+        (bool ok, bytes memory ret) = XCM_PRECOMPILE.call(
+            abi.encodeCall(IXcm.weighMessage, (message))
+        );
+        if (!ok || ret.length < 64) revert XCMWeighFailed();
+        return abi.decode(ret, (uint64, uint64));
     }
 
     /// @notice Claim (assign) a pending job as a provider
@@ -418,13 +450,14 @@ contract HyperwayMarketplace is ReentrancyGuard, Ownable, Pausable {
         Job storage job = jobs[jobId];
         if (job.status != JobStatus.PENDING) revert JobNotPending();
 
-        job.provider = msg.sender;
+        address sender = _msgSender();
+        job.provider = sender;
         job.status = JobStatus.ASSIGNED;
         job.assignedAt = block.timestamp;
 
-        providerJobs[msg.sender].push(jobId);
+        providerJobs[sender].push(jobId);
 
-        emit JobAssigned(jobId, msg.sender);
+        emit JobAssigned(jobId, sender);
     }
 
     /// @notice Submit proof of completed compute work and receive payment
@@ -436,7 +469,8 @@ contract HyperwayMarketplace is ReentrancyGuard, Ownable, Pausable {
         bytes calldata /* proof */
     ) external nonReentrant jobExists(jobId) {
         Job storage job = jobs[jobId];
-        if (msg.sender != job.provider) revert NotAssignedProvider();
+        address sender = _msgSender();
+        if (sender != job.provider) revert NotAssignedProvider();
         if (job.status != JobStatus.ASSIGNED) revert JobNotAssigned();
 
         // Store the result
@@ -449,9 +483,9 @@ contract HyperwayMarketplace is ReentrancyGuard, Ownable, Pausable {
         uint256 providerPayment = job.paymentAmount - fee;
 
         // Update provider stats
-        Provider storage provider = providers[msg.sender];
+        Provider storage provider = providers[sender];
         provider.totalJobsCompleted++;
-        _updateReputation(msg.sender, true);
+        _updateReputation(sender, true);
 
         // Aggregate stats
         totalJobsCompleted++;
@@ -470,14 +504,14 @@ contract HyperwayMarketplace is ReentrancyGuard, Ownable, Pausable {
         }
 
         emit ProofSubmitted(jobId, resultCID);
-        emit JobCompleted(jobId, msg.sender, providerPayment);
+        emit JobCompleted(jobId, sender, providerPayment);
     }
 
     /// @notice Cancel a pending job (buyer only, before it's assigned)
     /// @param jobId The job to cancel
     function cancelJob(uint256 jobId) external nonReentrant jobExists(jobId) {
         Job storage job = jobs[jobId];
-        if (msg.sender != job.buyer) revert NotJobBuyer();
+        if (_msgSender() != job.buyer) revert NotJobBuyer();
         if (job.status != JobStatus.PENDING) revert JobNotPending();
 
         job.status = JobStatus.FAILED;
@@ -503,7 +537,7 @@ contract HyperwayMarketplace is ReentrancyGuard, Ownable, Pausable {
         uint256 jobId
     ) external nonReentrant jobExists(jobId) {
         Job storage job = jobs[jobId];
-        if (msg.sender != job.buyer) revert NotJobBuyer();
+        if (_msgSender() != job.buyer) revert NotJobBuyer();
         if (job.status != JobStatus.ASSIGNED) revert JobNotAssigned();
         if (block.timestamp <= job.deadline) revert DeadlineNotReached();
 
@@ -551,16 +585,14 @@ contract HyperwayMarketplace is ReentrancyGuard, Ownable, Pausable {
         string calldata reason
     ) external jobExists(jobId) {
         Job storage job = jobs[jobId];
-        if (msg.sender != job.buyer) revert NotJobBuyer();
+        address sender = _msgSender();
+        if (sender != job.buyer) revert NotJobBuyer();
         // Allow disputing COMPLETED or ASSIGNED jobs
-        require(
-            job.status == JobStatus.COMPLETED ||
-                job.status == JobStatus.ASSIGNED,
-            "Cannot dispute this job status"
-        );
+        if (job.status != JobStatus.COMPLETED && job.status != JobStatus.ASSIGNED)
+            revert InvalidJobStatus();
 
         job.status = JobStatus.DISPUTED;
-        emit JobDisputed(jobId, msg.sender, reason);
+        emit JobDisputed(jobId, sender, reason);
     }
 
     /// @notice Owner resolves a dispute (interim solution — DAO governance in future)
@@ -571,7 +603,7 @@ contract HyperwayMarketplace is ReentrancyGuard, Ownable, Pausable {
         bool buyerWins
     ) external onlyOwner nonReentrant jobExists(jobId) {
         Job storage job = jobs[jobId];
-        require(job.status == JobStatus.DISPUTED, "Job not disputed");
+        if (job.status != JobStatus.DISPUTED) revert InvalidJobStatus();
 
         if (buyerWins) {
             job.status = JobStatus.FAILED;
@@ -707,6 +739,38 @@ contract HyperwayMarketplace is ReentrancyGuard, Ownable, Pausable {
         if (total > 0) {
             p.reputationScore = uint8((p.totalJobsCompleted * 100) / total);
         }
+    }
+
+    // ════════════════════════════════════════════════
+    //  CONTEXT OVERRIDES (ERC2771 + Ownable/Pausable)
+    // ════════════════════════════════════════════════
+
+    /// @dev Resolve the Context diamond (ERC2771Context vs Ownable/Pausable)
+    function _msgSender()
+        internal
+        view
+        override(Context, ERC2771Context)
+        returns (address)
+    {
+        return ERC2771Context._msgSender();
+    }
+
+    function _msgData()
+        internal
+        view
+        override(Context, ERC2771Context)
+        returns (bytes calldata)
+    {
+        return ERC2771Context._msgData();
+    }
+
+    function _contextSuffixLength()
+        internal
+        view
+        override(Context, ERC2771Context)
+        returns (uint256)
+    {
+        return ERC2771Context._contextSuffixLength();
     }
 
     /// @dev Allow the contract to receive native DOT directly (for XCM deposits)

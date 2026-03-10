@@ -3,9 +3,12 @@ pragma solidity ^0.8.28;
 
 import {Test, console} from "forge-std/Test.sol";
 import {HyperwayMarketplace} from "../src/HyperwayMarketplace.sol";
+import {IXcm} from "../src/interfaces/IXCM.sol";
+import {ERC2771Forwarder} from "@openzeppelin/contracts/metatx/ERC2771Forwarder.sol";
 
 contract HyperwayMarketplaceTest is Test {
     HyperwayMarketplace public marketplace;
+    ERC2771Forwarder public forwarder;
 
     address public owner = makeAddr("owner");
     address public feeRecipient = makeAddr("feeRecipient");
@@ -13,6 +16,10 @@ contract HyperwayMarketplaceTest is Test {
     address public provider2 = makeAddr("provider2");
     address public buyer1 = makeAddr("buyer1");
     address public buyer2 = makeAddr("buyer2");
+
+    // Private keys for gasless signing (must match the addresses above)
+    uint256 public buyer1Key;
+    uint256 public provider1Key;
 
     uint256 public constant STAKE_AMOUNT = 2 ether;
     uint256 public constant JOB_PAYMENT = 0.5 ether;
@@ -28,8 +35,20 @@ contract HyperwayMarketplaceTest is Test {
     // ──────────────────────────────────────────────
 
     function setUp() public {
+        // Create wallets with known keys for gasless signing
+        (address _buyer1, uint256 _buyer1Key) = makeAddrAndKey("buyer1");
+        (address _provider1, uint256 _provider1Key) = makeAddrAndKey("provider1");
+        buyer1Key = _buyer1Key;
+        provider1Key = _provider1Key;
+        // Sanity: makeAddrAndKey("buyer1") == makeAddr("buyer1")
+        assert(_buyer1 == buyer1);
+        assert(_provider1 == provider1);
+
+        // Deploy forwarder + marketplace
+        forwarder = new ERC2771Forwarder("HyperwayForwarder");
+
         vm.prank(owner);
-        marketplace = new HyperwayMarketplace(feeRecipient);
+        marketplace = new HyperwayMarketplace(feeRecipient, address(forwarder));
 
         // Fund test accounts
         vm.deal(provider1, 100 ether);
@@ -60,7 +79,7 @@ contract HyperwayMarketplaceTest is Test {
     function test_constructor_revertsZeroAddress() public {
         vm.prank(owner);
         vm.expectRevert(HyperwayMarketplace.ZeroAddress.selector);
-        new HyperwayMarketplace(address(0));
+        new HyperwayMarketplace(address(0), address(forwarder));
     }
 
     // ──────────────────────────────────────────────
@@ -817,90 +836,322 @@ contract HyperwayMarketplaceTest is Test {
     }
 
     // ──────────────────────────────────────────────
-    //  XCM Integration Tests
+    //  XCM Integration Tests (Mocked Precompile)
     // ──────────────────────────────────────────────
     //
-    // NOTE: The XCM precompile (0x...000a0000) does NOT exist on Anvil.
-    // These tests verify the contract logic around XCM by mocking the
-    // precompile behavior. For real XCM testing, use:
-    //   - Chopsticks fork of Asset Hub (recommended)
-    //   - Polkadot Hub TestNet (chain ID 420420417)
-    //
-    // The official Polkadot Cookbook test approach:
-    // https://github.com/brunopgalvao/recipe-contracts-precompile-example
+    // These tests use vm.etch + vm.mockCall to simulate the XCM precompile
+    // at 0x...000a0000. For live XCM testing, use the TestXCM.s.sol script
+    // against the Polkadot Hub TestNet.
+
+    address constant XCM_PRECOMPILE = 0x00000000000000000000000000000000000a0000;
+
+    bytes constant XCM_MSG = hex"05040a"; // V5 + ClearOrigin
+
+    /// @dev Deploy a real mock contract at the precompile address that:
+    ///      1. Returns valid weight from weighMessage
+    ///      2. Sends ETH to the caller (marketplace) during execute()
+    function _mockXCMPrecompile(bytes memory xcmMsg, uint256 depositAmount) internal {
+        // Deploy our mock and copy its runtime bytecode to the precompile address
+        MockXCMPrecompile mock = new MockXCMPrecompile(address(marketplace), depositAmount);
+        vm.etch(XCM_PRECOMPILE, address(mock).code);
+
+        // Fund the precompile so it can send ETH during execute()
+        if (depositAmount > 0) {
+            vm.deal(XCM_PRECOMPILE, depositAmount);
+        }
+
+        // Copy the storage slots (target + depositAmount) from mock to precompile
+        // Slot 0 = target address, Slot 1 = depositAmount
+        vm.store(XCM_PRECOMPILE, bytes32(0), bytes32(uint256(uint160(address(marketplace)))));
+        vm.store(XCM_PRECOMPILE, bytes32(uint256(1)), bytes32(depositAmount));
+
+        // Mock weighMessage since the runtime code won't have our full logic
+        vm.mockCall(
+            XCM_PRECOMPILE,
+            abi.encodeCall(IXcm.weighMessage, (xcmMsg)),
+            abi.encode(uint64(1_000_000_000), uint64(65_536))
+        );
+    }
 
     function test_xcmPrecompileAddress() public view {
-        // Verify the constant matches the official Polkadot Cookbook address
-        assertEq(
-            marketplace.XCM_PRECOMPILE(),
-            0x00000000000000000000000000000000000a0000
+        assertEq(marketplace.XCM_PRECOMPILE(), XCM_PRECOMPILE);
+    }
+
+    // ── estimateXCMWeight ────────────────────────
+
+    function test_estimateXCMWeight_success() public {
+        vm.etch(XCM_PRECOMPILE, hex"00");
+        vm.mockCall(
+            XCM_PRECOMPILE,
+            abi.encodeCall(IXcm.weighMessage, (XCM_MSG)),
+            abi.encode(uint64(1_000_000_000), uint64(65_536))
         );
+
+        (uint64 refTime, uint64 proofSize) = marketplace.estimateXCMWeight(XCM_MSG);
+        assertEq(refTime, 1_000_000_000);
+        assertEq(proofSize, 65_536);
     }
 
-    function test_estimateXCMWeight_revertsOnAnvil() public {
-        // On Anvil, the precompile doesn't exist, so this should revert
-        // This confirms our contract correctly calls the precompile address
-        bytes memory xcmMessage = hex"05040a"; // V5 + ClearOrigin
-
-        vm.expectRevert();
-        marketplace.estimateXCMWeight(xcmMessage);
+    function test_estimateXCMWeight_revertsOnFailure() public {
+        // No precompile deployed → call returns false → XCMWeighFailed
+        vm.expectRevert(HyperwayMarketplace.XCMWeighFailed.selector);
+        marketplace.estimateXCMWeight(XCM_MSG);
     }
 
-    function test_submitJobWithXCM_revertsOnAnvil() public {
-        // On Anvil, XCM execute will revert because precompile doesn't exist
-        // This confirms the contract attempts to call the correct address
-        bytes memory xcmMessage = hex"05040a";
+    // ── sendXCMMessage ───────────────────────────
 
+    function test_sendXCMMessage_success() public {
+        bytes memory destination = hex"0100";
+
+        vm.etch(XCM_PRECOMPILE, hex"00");
+        vm.mockCall(
+            XCM_PRECOMPILE,
+            abi.encodeCall(IXcm.send, (destination, XCM_MSG)),
+            ""
+        );
+
+        vm.prank(owner);
+        marketplace.sendXCMMessage(destination, XCM_MSG);
+    }
+
+    function test_sendXCMMessage_revertsNotOwner() public {
         vm.prank(buyer1);
         vm.expectRevert();
-        marketplace.submitJobWithXCM(SPEC_CID, COMPUTE_UNITS, xcmMessage);
+        marketplace.sendXCMMessage(hex"0100", XCM_MSG);
     }
 
-    function test_sendXCMMessage_onlyOwner() public {
-        bytes memory destination = hex"0100"; // Relay chain
-        bytes memory message = hex"05040a";
+    function test_sendXCMMessage_revertsOnPrecompileFailure() public {
+        // Mock precompile to revert on any call
+        vm.etch(XCM_PRECOMPILE, hex"00");
+        vm.mockCallRevert(XCM_PRECOMPILE, bytes(""), bytes("revert"));
 
-        // Non-owner should revert
+        vm.prank(owner);
+        vm.expectRevert(HyperwayMarketplace.XCMSendFailed.selector);
+        marketplace.sendXCMMessage(hex"0100", XCM_MSG);
+    }
+
+    // ── submitJobWithXCM ─────────────────────────
+
+    function test_submitJobWithXCM_success() public {
+        uint256 xcmDeposit = 1 ether;
+        _mockXCMPrecompile(XCM_MSG, xcmDeposit);
+
         vm.prank(buyer1);
-        vm.expectRevert();
-        marketplace.sendXCMMessage(destination, message);
+        uint256 jobId = marketplace.submitJobWithXCM(SPEC_CID, COMPUTE_UNITS, XCM_MSG);
+
+        assertEq(jobId, 1);
+
+        HyperwayMarketplace.Job memory job = marketplace.getJob(jobId);
+        assertEq(job.buyer, buyer1);
+        assertEq(job.paymentAmount, xcmDeposit);
+        assertEq(job.specCID, SPEC_CID);
+        assertEq(uint8(job.status), uint8(HyperwayMarketplace.JobStatus.PENDING));
+
+        assertEq(marketplace.totalJobsCreated(), 1);
+        assertEq(marketplace.totalVolumeEscrowed(), xcmDeposit);
     }
 
-    /// @notice Simulate the full XCM job flow by directly sending ETH to mimic
-    ///         what the XCM precompile would do (deposit funds into contract)
-    function test_xcmJobFlow_simulation() public {
-        // This simulates what happens AFTER XCM successfully deposits funds:
-        // 1. Provider registers
+    function test_submitJobWithXCM_revertsWeighFails() public {
+        // No precompile → weighMessage call returns false
+        vm.prank(buyer1);
+        vm.expectRevert(HyperwayMarketplace.XCMWeighFailed.selector);
+        marketplace.submitJobWithXCM(SPEC_CID, COMPUTE_UNITS, XCM_MSG);
+    }
+
+    function test_submitJobWithXCM_revertsExecuteFails() public {
+        vm.etch(XCM_PRECOMPILE, hex"00");
+
+        // Mock weighMessage to succeed
+        vm.mockCall(
+            XCM_PRECOMPILE,
+            abi.encodeCall(IXcm.weighMessage, (XCM_MSG)),
+            abi.encode(uint64(1_000_000_000), uint64(65_536))
+        );
+
+        // Mock execute to revert
+        vm.mockCallRevert(
+            XCM_PRECOMPILE,
+            abi.encodeCall(
+                IXcm.execute,
+                (XCM_MSG, IXcm.Weight(1_000_000_000, 65_536))
+            ),
+            ""
+        );
+
+        vm.prank(buyer1);
+        vm.expectRevert(HyperwayMarketplace.XCMExecuteFailed.selector);
+        marketplace.submitJobWithXCM(SPEC_CID, COMPUTE_UNITS, XCM_MSG);
+    }
+
+    function test_submitJobWithXCM_revertsNoFundsReceived() public {
+        // Mock precompile to succeed but DON'T deposit any funds
+        _mockXCMPrecompile(XCM_MSG, 0);
+
+        vm.prank(buyer1);
+        vm.expectRevert(HyperwayMarketplace.XCMNoFundsReceived.selector);
+        marketplace.submitJobWithXCM(SPEC_CID, COMPUTE_UNITS, XCM_MSG);
+    }
+
+    /// @notice Full XCM job lifecycle: submit via XCM → assign → complete → pay out
+    function test_xcmJobFullLifecycle() public {
+        uint256 xcmDeposit = 2 ether;
+
         _registerProvider(provider1);
+        _mockXCMPrecompile(XCM_MSG, xcmDeposit);
 
-        // 2. Simulate: Someone submits a native job (standing in for XCM)
-        //    In production, submitJobWithXCM would handle this.
-        //    Here we use submitJob as a proxy since XCM precompile isn't on Anvil.
+        // 1. Submit via XCM
         vm.prank(buyer1);
-        uint256 jobId = marketplace.submitJob{value: JOB_PAYMENT}(
-            SPEC_CID,
-            COMPUTE_UNITS
-        );
+        uint256 jobId = marketplace.submitJobWithXCM(SPEC_CID, COMPUTE_UNITS, XCM_MSG);
 
-        // 3. Provider claims and completes (same flow regardless of payment source)
+        // 2. Provider claims
         vm.prank(provider1);
         marketplace.assignJob(jobId);
 
+        // 3. Provider submits proof
         uint256 providerBalBefore = provider1.balance;
 
         vm.prank(provider1);
         marketplace.submitProof(jobId, RESULT_CID, PROOF_DATA);
 
-        // 4. Verify payment distribution works identically
-        uint256 expectedFee = (JOB_PAYMENT * 250) / 10_000;
-        uint256 expectedPayment = JOB_PAYMENT - expectedFee;
+        // 4. Verify payment
+        uint256 expectedFee = (xcmDeposit * 250) / 10_000;
+        uint256 expectedPayment = xcmDeposit - expectedFee;
         assertEq(provider1.balance - providerBalBefore, expectedPayment);
 
         HyperwayMarketplace.Job memory job = marketplace.getJob(jobId);
-        assertEq(
-            uint8(job.status),
-            uint8(HyperwayMarketplace.JobStatus.COMPLETED)
+        assertEq(uint8(job.status), uint8(HyperwayMarketplace.JobStatus.COMPLETED));
+        assertEq(job.paymentAmount, xcmDeposit);
+        assertEq(marketplace.totalJobsCompleted(), 1);
+    }
+
+    // ──────────────────────────────────────────────
+    //  ERC2771 Gasless (Meta-Transaction) Tests
+    // ──────────────────────────────────────────────
+
+    function test_trustedForwarder() public view {
+        assertEq(marketplace.trustedForwarder(), address(forwarder));
+        assertTrue(marketplace.isTrustedForwarder(address(forwarder)));
+        assertFalse(marketplace.isTrustedForwarder(buyer1));
+    }
+
+    /// @dev Helper: build and sign a ForwardRequest, then execute via forwarder
+    function _executeGasless(
+        address from,
+        uint256 privateKey,
+        uint256 value,
+        bytes memory data
+    ) internal {
+        ERC2771Forwarder.ForwardRequestData memory req = ERC2771Forwarder.ForwardRequestData({
+            from: from,
+            to: address(marketplace),
+            value: value,
+            gas: 1_000_000,
+            deadline: uint48(block.timestamp + 1 hours),
+            data: data,
+            signature: "" // filled below
+        });
+
+        // Compute the EIP-712 digest
+        bytes32 structHash = keccak256(
+            abi.encode(
+                keccak256("ForwardRequest(address from,address to,uint256 value,uint256 gas,uint256 nonce,uint48 deadline,bytes data)"),
+                req.from,
+                req.to,
+                req.value,
+                req.gas,
+                forwarder.nonces(req.from),
+                req.deadline,
+                keccak256(req.data)
+            )
         );
+
+        bytes32 domainSeparator = _computeDomainSeparator();
+
+        bytes32 digest = keccak256(
+            abi.encodePacked("\x19\x01", domainSeparator, structHash)
+        );
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
+        req.signature = abi.encodePacked(r, s, v);
+
+        // Fund the forwarder with value to forward
+        if (value > 0) {
+            vm.deal(address(this), value);
+        }
+
+        // Execute via forwarder (test contract acts as relayer)
+        forwarder.execute{value: value}(req);
+    }
+
+    function _computeDomainSeparator() internal view returns (bytes32) {
+        (
+            ,
+            string memory name,
+            string memory version,
+            uint256 chainId,
+            address verifyingContract,
+            ,
+
+        ) = forwarder.eip712Domain();
+        return keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+                keccak256(bytes(name)),
+                keccak256(bytes(version)),
+                chainId,
+                verifyingContract
+            )
+        );
+    }
+
+    function test_gaslessSubmitJob() public {
+        // Submit job via forwarder — buyer1 signs, test contract relays
+        _executeGasless(
+            buyer1,
+            buyer1Key,
+            JOB_PAYMENT,
+            abi.encodeCall(marketplace.submitJob, (SPEC_CID, COMPUTE_UNITS))
+        );
+
+        // Job should be created with buyer1 as the buyer (NOT the forwarder)
+        HyperwayMarketplace.Job memory job = marketplace.getJob(1);
+        assertEq(job.buyer, buyer1);
+        assertEq(job.paymentAmount, JOB_PAYMENT);
+        assertEq(uint8(job.status), uint8(HyperwayMarketplace.JobStatus.PENDING));
+        assertEq(marketplace.totalJobsCreated(), 1);
+
+        // Buyer's jobs should include this job
+        uint256[] memory buyerJobIds = marketplace.getBuyerJobs(buyer1);
+        assertEq(buyerJobIds.length, 1);
+        assertEq(buyerJobIds[0], 1);
+    }
+
+    function test_gaslessRegisterProvider() public {
+        // Register provider via forwarder — provider1 signs, test contract relays
+        _executeGasless(
+            provider1,
+            provider1Key,
+            STAKE_AMOUNT,
+            abi.encodeCall(marketplace.registerProvider, (GPU_SPECS))
+        );
+
+        // Provider should be registered with correct address
+        assertTrue(marketplace.isProvider(provider1));
+        assertEq(marketplace.providerCount(), 1);
+
+        HyperwayMarketplace.Provider memory p = marketplace.getProvider(provider1);
+        assertEq(p.providerAddress, provider1);
+        assertEq(p.stakedAmount, STAKE_AMOUNT);
+        assertTrue(p.isActive);
+    }
+
+    function test_directCallsStillWork() public {
+        // Normal (non-gasless) calls should still work exactly as before
+        vm.prank(buyer1);
+        uint256 jobId = marketplace.submitJob{value: JOB_PAYMENT}(SPEC_CID, COMPUTE_UNITS);
+
+        HyperwayMarketplace.Job memory job = marketplace.getJob(jobId);
+        assertEq(job.buyer, buyer1);
     }
 
     // ──────────────────────────────────────────────
@@ -917,4 +1168,33 @@ contract HyperwayMarketplaceTest is Test {
         return
             marketplace.submitJob{value: JOB_PAYMENT}(SPEC_CID, COMPUTE_UNITS);
     }
+}
+
+/// @dev A mock XCM precompile that sends ETH to a target on execute() calls.
+///      Deployed via vm.etch at the precompile address. Storage:
+///      - Slot 0: target address (marketplace)
+///      - Slot 1: deposit amount
+contract MockXCMPrecompile {
+    address public target;
+    uint256 public depositAmount;
+
+    constructor(address _target, uint256 _depositAmount) {
+        target = _target;
+        depositAmount = _depositAmount;
+    }
+
+    /// @dev Catches execute() calls and sends ETH to the marketplace
+    fallback() external payable {
+        // If this is an execute() call (selector 0xd3b7e04d) and we have funds, send them
+        if (msg.data.length >= 4 && depositAmount > 0) {
+            bytes4 selector = bytes4(msg.data[:4]);
+            // execute(bytes,(uint64,uint64)) selector
+            if (selector == 0xd3b7e04d) {
+                (bool ok, ) = target.call{value: depositAmount}("");
+                require(ok, "MockXCM: transfer failed");
+            }
+        }
+    }
+
+    receive() external payable {}
 }

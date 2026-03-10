@@ -3,6 +3,7 @@ pragma solidity ^0.8.28;
 
 import {Script, console} from "forge-std/Script.sol";
 import {HyperwayMarketplace} from "../src/HyperwayMarketplace.sol";
+import {ERC2771Forwarder} from "@openzeppelin/contracts/metatx/ERC2771Forwarder.sol";
 
 /// @title Deploy Hyperway Marketplace
 /// @notice Deployment script for Polkadot Hub (TestNet & Mainnet)
@@ -22,7 +23,7 @@ import {HyperwayMarketplace} from "../src/HyperwayMarketplace.sol";
 ///   forge verify-contract <DEPLOYED_ADDRESS> \
 ///     src/HyperwayMarketplace.sol:HyperwayMarketplace \
 ///     --chain polkadot-testnet \
-///     --constructor-args $(cast abi-encode "constructor(address)" <FEE_RECIPIENT>)
+///     --constructor-args $(cast abi-encode "constructor(address,address)" <FEE_RECIPIENT> <FORWARDER>)
 contract DeployHyperway is Script {
     function run() external {
         // Load deployer private key
@@ -39,14 +40,23 @@ contract DeployHyperway is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        HyperwayMarketplace marketplace = new HyperwayMarketplace(feeRecipient);
+        // 1. Deploy ERC2771Forwarder (gasless meta-transactions)
+        ERC2771Forwarder forwarder = new ERC2771Forwarder("HyperwayForwarder");
+
+        // 2. Deploy HyperwayMarketplace with forwarder
+        HyperwayMarketplace marketplace = new HyperwayMarketplace(
+            feeRecipient,
+            address(forwarder)
+        );
 
         vm.stopBroadcast();
 
         console.log("-------------------------------------------");
+        console.log("ERC2771Forwarder deployed to:", address(forwarder));
         console.log("HyperwayMarketplace deployed to:", address(marketplace));
         console.log("Owner:", marketplace.owner());
         console.log("Fee Recipient:", marketplace.feeRecipient());
+        console.log("Trusted Forwarder:", marketplace.trustedForwarder());
         console.log(
             "Platform Fee:",
             marketplace.platformFeeBps(),
