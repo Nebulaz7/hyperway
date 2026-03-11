@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import Link from "next/link";
+import Blockie from "@/app/components/Blockie";
 import { useAccount } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useRealtimeJobs, useRealtimeStats } from "@/hooks/useRealtimeJobs";
@@ -28,66 +29,6 @@ const defaultFilters: Filters = {
   maxComputeUnits: "",
   sortBy: "newest",
 };
-
-// ─────────────────────────────────────────────
-//  Jazzicon (deterministic SVG from address)
-// ─────────────────────────────────────────────
-
-function addressToSeed(address: string): number {
-  const hex = address.slice(2, 10);
-  return parseInt(hex, 16);
-}
-
-function seededRandom(seed: number) {
-  let s = seed;
-  return () => {
-    s = (s * 16807 + 0) % 2147483647;
-    return s / 2147483647;
-  };
-}
-
-const JAZZ_COLORS = [
-  "#8B5CF6",
-  "#A78BFA",
-  "#C4B5FD",
-  "#7C3AED",
-  "#6D28D9",
-  "#F472B6",
-  "#EC4899",
-  "#DB2777",
-  "#34D399",
-  "#10B981",
-  "#60A5FA",
-  "#3B82F6",
-  "#F59E0B",
-  "#EF4444",
-  "#14B8A6",
-];
-
-function Jazzicon({ address, size = 32 }: { address: string; size?: number }) {
-  const seed = addressToSeed(address);
-  const rand = seededRandom(seed);
-  const bg = JAZZ_COLORS[Math.floor(rand() * JAZZ_COLORS.length)];
-  const shapes = Array.from({ length: 3 }, (_, i) => {
-    const color = JAZZ_COLORS[Math.floor(rand() * JAZZ_COLORS.length)];
-    const cx = rand() * size;
-    const cy = rand() * size;
-    const r = size * 0.2 + rand() * size * 0.3;
-    return <circle key={i} cx={cx} cy={cy} r={r} fill={color} opacity={0.7} />;
-  });
-
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox={`0 0 ${size} ${size}`}
-      className="rounded-full flex-shrink-0"
-      style={{ background: bg }}
-    >
-      {shapes}
-    </svg>
-  );
-}
 
 function truncateAddress(addr: string) {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
@@ -308,7 +249,7 @@ export default function MarketplacePage() {
                     onClick={openAccountModal}
                     className="neo-btn neo-btn-sm bg-[#1a1a1a] text-purple-300 border-purple-500"
                   >
-                    <Jazzicon address={account.address} size={18} />
+                    <Blockie address={account.address} size={18} />
                     {account.displayName}
                   </button>
                 );
@@ -499,17 +440,18 @@ export default function MarketplacePage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
             {filteredJobs.map((job) => (
-              <JobCard
-                key={job.job_id}
-                job={job}
-                isProvider={!!isProviderData}
-                isConnected={isConnected}
-                userAddress={address}
-                isClaiming={isClaiming && claimingJobId === job.job_id}
-                claimSuccess={claimSuccess && claimingJobId === job.job_id}
-                onClaim={handleClaim}
-                isNew={newJobFlash === job.job_id}
-              />
+              <Link key={job.job_id} href={`/marketplace/${job.job_id}`} className="block">
+                <JobCard
+                  job={job}
+                  isProvider={!!isProviderData}
+                  isConnected={isConnected}
+                  userAddress={address}
+                  isClaiming={isClaiming && claimingJobId === job.job_id}
+                  claimSuccess={claimSuccess && claimingJobId === job.job_id}
+                  onClaim={handleClaim}
+                  isNew={newJobFlash === job.job_id}
+                />
+              </Link>
             ))}
           </div>
         )}
@@ -673,7 +615,7 @@ function JobCard({
       {/* Header */}
       <div className="flex items-start justify-between gap-3 mb-4">
         <div className="flex items-center gap-3">
-          <Jazzicon address={job.buyer} size={36} />
+          <Blockie address={job.buyer} size={36} />
           <div>
             <p className="text-sm font-bold text-white">Job #{job.job_id}</p>
             <p className="text-xs text-gray-500">
@@ -715,7 +657,7 @@ function JobCard({
       {/* Provider info (if assigned) */}
       {job.provider && (
         <div className="flex items-center gap-2 p-2.5 rounded-xl bg-blue-500/5 border-2 border-blue-800 mb-4">
-          <Jazzicon address={job.provider} size={20} />
+          <Blockie address={job.provider} size={20} />
           <span className="text-xs text-blue-300 font-medium">
             {isAssignedToMe
               ? "Assigned to you"
