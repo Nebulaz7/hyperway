@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SupabaseService } from '../supabase/supabase.service';
 
+// Stores and retrieves the last indexed block so polling can resume safely across restarts.
 @Injectable()
 export class IndexerStateService {
   private readonly logger = new Logger(IndexerStateService.name);

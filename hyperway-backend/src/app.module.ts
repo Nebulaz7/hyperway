@@ -1,9 +1,8 @@
 import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
+import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { IndexerModule } from './indexer/indexer.module';
 import { SupabaseModule } from './supabase/supabase.module';
-import { ConfigModule } from '@nestjs/config';
 import configuration, { validationSchema } from './config/configuration';
 
 @Module({
@@ -13,11 +12,9 @@ import configuration, { validationSchema } from './config/configuration';
       load: [configuration],
       validationSchema,
     }),
-    IndexerModule,
+    ScheduleModule.forRoot(),
     SupabaseModule,
+    IndexerModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
 })
-
 export class AppModule {}

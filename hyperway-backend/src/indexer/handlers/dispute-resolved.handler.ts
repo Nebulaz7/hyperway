@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { SupabaseService } from '../../supabase/supabase.service';
 
+// Applies DisputeResolved outcomes by finalizing job status and recording a dispute audit event.
 @Injectable()
 export class DisputeResolvedHandler {
   private readonly logger = new Logger(DisputeResolvedHandler.name);

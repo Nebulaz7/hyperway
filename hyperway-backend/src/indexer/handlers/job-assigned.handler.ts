@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { SupabaseService } from '../../supabase/supabase.service';
 
+// Handles JobAssigned events by attaching the provider, setting ASSIGNED status, and logging the assignment.
 @Injectable()
 export class JobAssignedHandler {
   private readonly logger = new Logger(JobAssignedHandler.name);

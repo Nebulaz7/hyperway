@@ -18,6 +18,7 @@ import {
 } from './handlers/provider-lifecycle.handler';
 import { ConfigModule } from '@nestjs/config';
 
+// Registers the indexer orchestrator, state service, and all event handlers as Nest providers.
 
 @Module({
   imports: [ConfigModule],

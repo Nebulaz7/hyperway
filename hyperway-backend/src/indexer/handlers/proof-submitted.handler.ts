@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { SupabaseService } from '../../supabase/supabase.service';
 
+// Persists result CID on proof submission so completed jobs can reference the produced output.
 @Injectable()
 export class ProofSubmittedHandler {
   private readonly logger = new Logger(ProofSubmittedHandler.name);

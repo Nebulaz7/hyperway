@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { SupabaseService } from '../../supabase/supabase.service';
 
+// Inserts or refreshes provider profiles from registration events, including decoded GPU capability JSON.
 @Injectable()
 export class ProviderRegisteredHandler {
   private readonly logger = new Logger(ProviderRegisteredHandler.name);
