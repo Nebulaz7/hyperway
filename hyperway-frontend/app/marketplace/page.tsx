@@ -236,12 +236,26 @@ export default function MarketplacePage() {
                 if (!mounted) return null;
                 if (!account || !chain) {
                   return (
-                    <button
-                      onClick={openConnectModal}
-                      className="neo-btn neo-btn-sm bg-[#1a1a1a] text-purple-300 border-purple-500"
-                    >
-                      Connect
-                    </button>
+                    <>
+                      <Link
+                        href="/provider-dashboard"
+                        className="text-sm font-bold text-gray-400 hover:text-white transition-colors"
+                      >
+                        Provider Dashboard
+                      </Link>
+                      <Link
+                        href="/marketplace"
+                        className="text-sm font-bold text-gray-400 hover:text-white transition-colors"
+                      >
+                        Marketplace
+                      </Link>
+                      <button
+                        onClick={openConnectModal}
+                        className="neo-btn neo-btn-sm bg-[#1a1a1a] text-purple-300 border-purple-500"
+                      >
+                        Connect
+                      </button>
+                    </>
                   );
                 }
                 return (
