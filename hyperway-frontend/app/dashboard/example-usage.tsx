@@ -27,7 +27,7 @@ function SubmitJobForm() {
     //    ipfsResult.bytes32 = "0xabcd..."
 
     // 3. Submit to contract with the bytes32 CID + payment
-    await submitJob(ipfsResult.bytes32, 3600, "0.5");
+    await submitJob(ipfsResult.bytes32, BigInt(3600), "0.5");
     //    → Calls contract.submitJob(bytes32, 3600) with 0.5 DOT
 
     // 4. Indexer picks up JobSubmitted event → writes to Supabase
