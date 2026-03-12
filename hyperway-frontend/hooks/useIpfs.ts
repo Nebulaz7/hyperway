@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import type { UploadResult, JobSpec, JobResult } from "@/lib/ipfs";
-import { downloadJSON, downloadFile, cidToUrl, exists } from "@/lib/ipfs";
+import { downloadJSON, downloadFile, cidToUrl, exists, cidToBytes32 } from "@/lib/ipfs";
 
 // ──────────────────────────────────────────────
 //  Upload Hooks (call API routes)
@@ -44,7 +44,10 @@ export function useUploadJSON(): UseUploadReturn {
           throw new Error(body.error || `Upload failed (${res.status})`);
         }
 
-        const uploadResult: UploadResult = await res.json();
+        const partialResult = await res.json();
+        const bytes32 = await cidToBytes32(partialResult.cid);
+        const uploadResult: UploadResult = { ...partialResult, bytes32 };
+        console.log("[IPFS] Upload JSON Success:", uploadResult);
         setResult(uploadResult);
         return uploadResult;
       } catch (err) {
@@ -99,7 +102,10 @@ export function useUploadFile(): UseUploadReturn {
           throw new Error(body.error || `Upload failed (${res.status})`);
         }
 
-        const uploadResult: UploadResult = await res.json();
+        const partialResult = await res.json();
+        const bytes32 = await cidToBytes32(partialResult.cid);
+        const uploadResult: UploadResult = { ...partialResult, bytes32 };
+        console.log("[IPFS] Upload File Success:", uploadResult);
         setResult(uploadResult);
         return uploadResult;
       } catch (err) {

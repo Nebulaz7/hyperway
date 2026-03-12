@@ -145,6 +145,13 @@ export default function SubmitJobPage() {
           setFreeTxCount((prev) => prev - 1);
         }
 
+        console.log("[submitJob] Parameters prepared:", {
+          bytes32: ipfsResult.bytes32,
+          cid: ipfsResult.cid,
+          computeUnits: BigInt(form.computeUnits),
+          paymentAmount: form.paymentAmount
+        });
+
         await submitJob(ipfsResult.bytes32, BigInt(form.computeUnits), form.paymentAmount);
         setStep("confirming");
       } catch (err) {
