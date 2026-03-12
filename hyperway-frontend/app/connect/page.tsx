@@ -3,46 +3,47 @@
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import Link from "next/link";
 import { useAccount } from "wagmi";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 export default function ConnectPage() {
   const { isConnected } = useAccount();
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
+
+  // Hydration fix
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Redirect to dashboard once connected
   useEffect(() => {
-    if (isConnected) {
+    if (mounted && isConnected) {
       router.push("/dashboard");
     }
-  }, [isConnected, router]);
+  }, [isConnected, router, mounted]);
+
+  if (!mounted) return null;
 
   return (
-    <main className="min-h-screen bg-[#050505] text-white flex flex-col items-center justify-center p-6">
-      {/* Background Effect */}
-      <div className="absolute inset-0 bg-gradient-to-b from-pink-500/5 to-transparent pointer-events-none" />
-
-      <div className="relative z-10 w-full max-w-md bg-[#111] border border-white/5 rounded-3xl p-8 md:p-12 text-center shadow-2xl">
-        <div className="w-16 h-16 bg-gradient-to-tr from-pink-600 to-orange-400 rounded-2xl mx-auto mb-8 flex items-center justify-center">
-          <svg
-            className="w-8 h-8 text-white"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
+    <main className="min-h-screen bg-[#0a0a0a] grid-background flex flex-col items-center justify-center p-6">
+      <div className="relative z-10 w-full max-w-md neo-card !p-8 md:!p-12 text-center">
+        <p>
+          <Link
+            href="/"
+            className=" text-gray-500 hover:text-white transition text-sm font-bold flex items-center gap-2"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M13 10V3L4 14h7v7l9-11h-7z"
-            />
-          </svg>
+            <span>←</span> Back to Home
+          </Link>
+        </p>
+        <div className="w-16 h-16 bg-purple-600/20 border-2 border-purple-500 rounded-2xl mx-auto mb-8 flex items-center justify-center text-3xl">
+          ⚡
         </div>
 
-        <h1 className="text-3xl font-bold mb-4 tracking-tight">
+        <h1 className="text-3xl font-bold mb-4 tracking-tight text-white">
           Connect to Hyperway
         </h1>
-        <p className="text-gray-400 mb-10 leading-relaxed">
+        <p className="text-gray-400 mb-8 leading-relaxed">
           Access the Polkadot Hub Testnet P2P GPU marketplace. Securely link
           your wallet to lease compute or register your hardware.
         </p>
@@ -84,7 +85,7 @@ export default function ConnectPage() {
                         <button
                           onClick={openConnectModal}
                           type="button"
-                          className="w-full py-4 bg-white text-black font-black rounded-xl hover:bg-gray-200 transition-all active:scale-95 text-lg"
+                          className="neo-btn w-full bg-purple-600 text-white text-lg py-4"
                         >
                           Connect Wallet
                         </button>
@@ -96,7 +97,7 @@ export default function ConnectPage() {
                         <button
                           onClick={openChainModal}
                           type="button"
-                          className="w-full py-4 bg-red-500 text-white font-black rounded-xl hover:bg-red-600 transition-all text-lg"
+                          className="neo-btn w-full bg-red-600 text-white text-lg py-4"
                         >
                           Wrong Network
                         </button>
@@ -104,18 +105,18 @@ export default function ConnectPage() {
                     }
 
                     return (
-                      <div className="flex flex-col gap-3">
+                      <div className="flex flex-col gap-4">
                         <button
                           onClick={() => router.push("/dashboard")}
                           type="button"
-                          className="w-full py-4 bg-pink-600 text-white font-black rounded-xl hover:bg-pink-700 transition-all text-lg"
+                          className="neo-btn w-full bg-purple-600 text-white text-lg py-4"
                         >
                           Go to Console
                         </button>
                         <button
                           onClick={openAccountModal}
                           type="button"
-                          className="text-gray-500 text-sm hover:text-white transition"
+                          className="text-gray-500 text-sm hover:text-white transition font-bold"
                         >
                           Disconnect {account.displayName}
                         </button>
@@ -128,26 +129,72 @@ export default function ConnectPage() {
           </ConnectButton.Custom>
         </div>
 
-        <div className="pt-6 border-t border-white/5">
-          <p className="text-sm text-gray-500">
-            New to Polkadot? <br />
+        {/* Faucet Link Section */}
+        <div className="pt-6 border-t-2 border-gray-800 space-y-4">
+          <div className="bg-purple-500/5 border border-purple-500/20 rounded-xl p-4">
+            <p className="text-sm text-gray-400 mb-2">
+              Need test tokens for gas and staking?
+            </p>
+            <a
+              href="https://faucet.polkadot.io/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-purple-400 hover:text-purple-300 font-bold text-sm underline flex items-center justify-center gap-1"
+            >
+              Get PAS from the Faucet <span>↗</span>
+            </a>
+          </div>
+
+          <p className="text-xs text-gray-500">
+            New to Polkadot?{" "}
             <Link
               href="https://docs.polkadot.com/smart-contracts/connect/"
               target="_blank"
-              className="text-pink-500 hover:underline"
+              className="text-gray-400 hover:text-white underline font-medium"
             >
-              Learn how to setup your wallet
+              Setup your wallet
             </Link>
           </p>
         </div>
       </div>
 
-      <Link
-        href="/"
-        className="mt-8 text-gray-500 hover:text-white transition text-sm"
-      >
-        ← Back to Home
-      </Link>
+      <style jsx global>{`
+        .neo-card {
+          background: #111111;
+          border: 3px solid #2a2a2a;
+          border-radius: 16px;
+          padding: 24px;
+          box-shadow: 6px 6px 0px #1a1a1a;
+          transition: all 0.15s ease;
+        }
+        .neo-card:hover {
+          box-shadow: 4px 4px 0px #1a1a1a;
+          transform: translate(1px, 1px);
+        }
+        .neo-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          border: 3px solid currentColor;
+          border-radius: 12px;
+          padding: 8px 20px;
+          font-weight: 700;
+          font-size: 14px;
+          cursor: pointer;
+          box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.4);
+          transition: all 0.1s ease;
+          text-decoration: none;
+        }
+        .neo-btn:hover {
+          box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.4);
+          transform: translate(2px, 2px);
+        }
+        .neo-btn:active {
+          box-shadow: 0px 0px 0px rgba(0, 0, 0, 0.4);
+          transform: translate(4px, 4px);
+        }
+      `}</style>
     </main>
   );
 }
