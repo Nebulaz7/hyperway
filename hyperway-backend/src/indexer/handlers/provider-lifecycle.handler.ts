@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { SupabaseService } from '../../supabase/supabase.service';
 
+// Groups provider lifecycle handlers that toggle activity, handle withdrawals, and update GPU metadata.
 @Injectable()
 export class ProviderDeactivatedHandler {
   private readonly logger = new Logger(ProviderDeactivatedHandler.name);

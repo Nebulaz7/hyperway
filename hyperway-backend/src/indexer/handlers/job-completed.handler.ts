@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { SupabaseService } from '../../supabase/supabase.service';
 
+// Finalizes completed jobs, updates provider completion stats, and writes completion history.
 @Injectable()
 export class JobCompletedHandler {
   private readonly logger = new Logger(JobCompletedHandler.name);

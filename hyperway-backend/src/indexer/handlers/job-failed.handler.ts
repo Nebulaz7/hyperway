@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { SupabaseService } from '../../supabase/supabase.service';
 
+// Handles failed jobs by setting FAILED status, updating provider failure stats, and logging failure events.
 @Injectable()
 export class JobFailedHandler {
   private readonly logger = new Logger(JobFailedHandler.name);

@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { SupabaseService } from '../../supabase/supabase.service';
 
+// Marks jobs as disputed and records the dispute payload for downstream review and audit.
 @Injectable()
 export class JobDisputedHandler {
   private readonly logger = new Logger(JobDisputedHandler.name);

@@ -20,6 +20,7 @@ import {
   GPUSpecsUpdatedHandler,
 } from './handlers/provider-lifecycle.handler';
 
+// Polls on-chain contract logs, decodes events, and routes each event to the correct persistence handler.
 @Injectable()
 export class IndexerService implements OnModuleInit {
   private readonly logger = new Logger(IndexerService.name);

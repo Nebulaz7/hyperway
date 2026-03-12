@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { SupabaseService } from '../../supabase/supabase.service';
 
+// Applies slashing penalties by decrementing provider stake and recording a platform-level slash event.
 @Injectable()
 export class ProviderSlashedHandler {
   private readonly logger = new Logger(ProviderSlashedHandler.name);

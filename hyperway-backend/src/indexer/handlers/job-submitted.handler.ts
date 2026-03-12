@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { SupabaseService } from '../../supabase/supabase.service';
 
+// Creates or updates pending jobs from submission events and stores a submission audit record.
 @Injectable()
 export class JobSubmittedHandler {
   private readonly logger = new Logger(JobSubmittedHandler.name);
