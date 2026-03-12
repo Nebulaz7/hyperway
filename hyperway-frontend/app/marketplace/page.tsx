@@ -259,13 +259,27 @@ export default function MarketplacePage() {
                   );
                 }
                 return (
-                  <button
-                    onClick={openAccountModal}
-                    className="neo-btn neo-btn-sm bg-[#1a1a1a] text-purple-300 border-purple-500"
-                  >
-                    <Blockie address={account.address} size={18} />
-                    {account.displayName}
-                  </button>
+                  <div className="flex items-center gap-4">
+                    <Link
+                      href="/my-jobs"
+                      className="text-sm font-bold text-gray-400 hover:text-white transition-colors"
+                    >
+                      My Jobs
+                    </Link>
+                    <Link
+                      href="/provider-dashboard"
+                      className="text-sm font-bold text-gray-400 hover:text-white transition-colors"
+                    >
+                      Provider Dashboard
+                    </Link>
+                    <button
+                      onClick={openAccountModal}
+                      className="neo-btn neo-btn-sm bg-[#1a1a1a] text-purple-300 border-purple-500"
+                    >
+                      <Blockie address={account.address} size={18} />
+                      {account.displayName}
+                    </button>
+                  </div>
                 );
               }}
             </ConnectButton.Custom>

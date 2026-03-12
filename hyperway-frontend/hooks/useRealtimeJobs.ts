@@ -88,7 +88,7 @@ export function useRealtimeBuyerJobs(buyerAddress: string | undefined) {
       const { data } = await supabase
         .from("jobs")
         .select("*")
-        .eq("buyer", addr)
+        .eq("buyer_address", addr)
         .order("created_at", { ascending: false });
 
       if (data) setJobs(data);
@@ -105,7 +105,7 @@ export function useRealtimeBuyerJobs(buyerAddress: string | undefined) {
           event: "*",
           schema: "public",
           table: "jobs",
-          filter: `buyer=eq.${addr}`,
+          filter: `buyer_address=eq.${addr}`,
         },
         (payload) => {
           if (payload.eventType === "INSERT") {
@@ -124,6 +124,63 @@ export function useRealtimeBuyerJobs(buyerAddress: string | undefined) {
       supabase.removeChannel(channel);
     };
   }, [buyerAddress]);
+
+  return { jobs, loading };
+}
+
+/** Subscribe to jobs for a specific provider address */
+export function useRealtimeProviderJobs(providerAddress: string | undefined) {
+  const [jobs, setJobs] = useState<JobRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!providerAddress) {
+      setLoading(false);
+      return;
+    }
+
+    const addr = providerAddress.toLowerCase();
+
+    const fetchJobs = async () => {
+      const { data } = await supabase
+        .from("jobs")
+        .select("*")
+        .eq("provider_address", addr)
+        .order("created_at", { ascending: false });
+
+      if (data) setJobs(data);
+      setLoading(false);
+    };
+
+    fetchJobs();
+
+    const channel = supabase
+      .channel(`provider-jobs-${addr}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "jobs",
+          filter: `provider_address=eq.${addr}`,
+        },
+        (payload) => {
+          if (payload.eventType === "INSERT") {
+            setJobs((prev) => [payload.new as JobRow, ...prev]);
+          } else if (payload.eventType === "UPDATE") {
+            const updated = payload.new as JobRow;
+            setJobs((prev) =>
+              prev.map((j) => (j.job_id === updated.job_id ? updated : j)),
+            );
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [providerAddress]);
 
   return { jobs, loading };
 }
