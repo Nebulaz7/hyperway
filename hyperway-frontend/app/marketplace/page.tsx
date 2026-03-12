@@ -618,10 +618,13 @@ function JobCard({
   onClaim: (jobId: number) => void;
   isNew: boolean;
 }) {
+  const validBuyer = (job as any).buyer_address || (job as any).buyer || "";
+  const validProvider = (job as any).provider_address || (job as any).provider || "";
+
   const isBuyer =
-    userAddress && job.buyer.toLowerCase() === userAddress.toLowerCase();
+    userAddress && validBuyer.toLowerCase() === userAddress.toLowerCase();
   const isAssignedToMe =
-    userAddress && job.provider?.toLowerCase() === userAddress.toLowerCase();
+    userAddress && validProvider.toLowerCase() === userAddress.toLowerCase();
   const canClaim = isProvider && job.status === "PENDING" && !isBuyer;
 
   return (
@@ -629,11 +632,11 @@ function JobCard({
       {/* Header */}
       <div className="flex items-start justify-between gap-3 mb-4">
         <div className="flex items-center gap-3">
-          <Blockie address={job.buyer} size={36} />
+          <Blockie address={validBuyer} size={36} />
           <div>
             <p className="text-sm font-bold text-white">Job #{job.job_id}</p>
             <p className="text-xs text-gray-500">
-              {truncateAddress(job.buyer)}
+              {truncateAddress(validBuyer)}
             </p>
           </div>
         </div>
@@ -659,23 +662,23 @@ function JobCard({
         />
         <DetailCell
           label="Compute"
-          value={computeTimeLabel(job.compute_units)}
+          value={computeTimeLabel((job as any).compute_units || 3600)}
         />
         <DetailCell label="Posted" value={timeAgo(job.created_at)} />
         <DetailCell
           label="Type"
-          value={job.is_xcm_payment ? "XCM 🔗" : "Direct"}
+          value={(job as any).is_xcm_payment ? "XCM 🔗" : "Direct"}
         />
       </div>
 
       {/* Provider info (if assigned) */}
-      {job.provider && (
+      {validProvider && (
         <div className="flex items-center gap-2 p-2.5 rounded-xl bg-blue-500/5 border-2 border-blue-800 mb-4">
-          <Blockie address={job.provider} size={20} />
+          <Blockie address={validProvider} size={20} />
           <span className="text-xs text-blue-300 font-medium">
             {isAssignedToMe
               ? "Assigned to you"
-              : `Provider: ${truncateAddress(job.provider)}`}
+              : `Provider: ${truncateAddress(validProvider)}`}
           </span>
         </div>
       )}

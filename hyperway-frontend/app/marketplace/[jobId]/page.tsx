@@ -164,10 +164,13 @@ export default function JobDetailPage() {
     assignJob(BigInt(jobId));
   };
 
+  const validBuyer = (job as any)?.buyer_address || (job as any)?.buyer || "";
+  const validProvider = (job as any)?.provider_address || (job as any)?.provider || "";
+
   const isBuyer =
-    address && job?.buyer.toLowerCase() === address.toLowerCase();
+    address && validBuyer.toLowerCase() === address.toLowerCase();
   const isAssignedToMe =
-    address && job?.provider?.toLowerCase() === address.toLowerCase();
+    address && validProvider.toLowerCase() === address.toLowerCase();
   const canClaim =
     !!isProviderData && job?.status === "PENDING" && !isBuyer;
 
@@ -261,13 +264,13 @@ export default function JobDetailPage() {
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
               <div className="flex items-center gap-4">
-                <Blockie address={job.buyer} size={48} />
+                <Blockie address={validBuyer} size={48} />
                 <div>
                   <h2 className="text-2xl md:text-3xl font-bold text-white">
                     Job #{job.job_id}
                   </h2>
                   <p className="text-gray-500 text-sm">
-                    Posted by {truncateAddress(job.buyer)} · {timeAgo(job.created_at)}
+                    Posted by {truncateAddress(validBuyer)} · {timeAgo(job.created_at)}
                   </p>
                 </div>
               </div>
@@ -312,11 +315,11 @@ export default function JobDetailPage() {
                     />
                     <MetricCell
                       label="Compute Time"
-                      value={computeTimeLabel(job.compute_units)}
+                      value={computeTimeLabel((job as any).compute_units || 3600)}
                     />
                     <MetricCell
                       label="Payment Type"
-                      value={job.is_xcm_payment ? "XCM 🔗" : "Direct"}
+                      value={(job as any).is_xcm_payment ? "XCM 🔗" : "Direct"}
                     />
                     <MetricCell
                       label="Created"
@@ -337,10 +340,10 @@ export default function JobDetailPage() {
                 <div className="neo-card">
                   <h3 className="neo-section-title">Buyer</h3>
                   <div className="flex items-center gap-4 p-4 rounded-xl bg-[#0a0a0a] border-2 border-gray-800">
-                    <Blockie address={job.buyer} size={40} />
+                    <Blockie address={validBuyer} size={40} />
                     <div>
                       <p className="text-sm font-bold text-white font-mono">
-                        {job.buyer}
+                        {validBuyer}
                       </p>
                       {isBuyer && (
                         <span className="text-xs text-purple-400 font-semibold">
@@ -352,14 +355,14 @@ export default function JobDetailPage() {
                 </div>
 
                 {/* Provider info */}
-                {job.provider && (
+                {validProvider && (
                   <div className="neo-card">
                     <h3 className="neo-section-title">Provider</h3>
                     <div className="flex items-center gap-4 p-4 rounded-xl bg-blue-500/5 border-2 border-blue-800">
-                      <Blockie address={job.provider} size={40} />
+                      <Blockie address={validProvider} size={40} />
                       <div>
                         <p className="text-sm font-bold text-white font-mono">
-                          {job.provider}
+                          {validProvider}
                         </p>
                         {isAssignedToMe && (
                           <span className="text-xs text-blue-400 font-semibold">
@@ -527,12 +530,12 @@ export default function JobDetailPage() {
                       />
                       <SummaryRow
                         label="Compute"
-                        value={computeTimeLabel(job.compute_units)}
+                        value={computeTimeLabel((job as any).compute_units || 3600)}
                       />
                       <SummaryRow label="Status" value={STATUS_CONFIG[job.status].label} />
                       <SummaryRow
                         label="Type"
-                        value={job.is_xcm_payment ? "XCM 🔗" : "Direct"}
+                        value={(job as any).is_xcm_payment ? "XCM 🔗" : "Direct"}
                       />
                     </div>
                   </div>
