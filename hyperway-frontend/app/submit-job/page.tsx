@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useAccount } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useUploadJobSpec, useUploadFile } from "@/hooks/useIPFS";
-import { useSubmitJob } from "@/hooks/useMarketplace";
+import { useSubmitJob, useRelaySubmitJob } from "@/hooks/useMarketplace";
 import type { JobSpec } from "@/lib/ipfs";
 
 // ─────────────────────────────────────────────
@@ -58,7 +58,8 @@ export default function SubmitJobPage() {
   const { address, isConnected } = useAccount();
   const { uploadSpec, isUploading, error: ipfsError, reset: resetIPFS } = useUploadJobSpec();
   const { upload: uploadFile, isUploading: isUploadingFile } = useUploadFile();
-  const { submitJob, hash, isPending, isConfirming, isSuccess, error: txError } = useSubmitJob();
+  const { submitJob, hash: txHash, isPending: txPending, isConfirming: txConfirming, isSuccess: txSuccess, error: txError } = useSubmitJob();
+  const { relaySubmitJob, hash: relayHash, isPending: relayPending, isConfirming: relayConfirming, isSuccess: relaySuccess, error: relayError } = useRelaySubmitJob();
 
   const [form, setForm] = useState<FormState>(initialForm);
   const [step, setStep] = useState<SubmissionStep>("form");
@@ -66,6 +67,12 @@ export default function SubmitJobPage() {
   const [freeTxCount, setFreeTxCount] = useState(MAX_FREE_TXS);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const hash = form.useGasless ? relayHash : txHash;
+  const isPending = form.useGasless ? relayPending : txPending;
+  const isConfirming = form.useGasless ? relayConfirming : txConfirming;
+  const isSuccess = form.useGasless ? relaySuccess : txSuccess;
+  const currentError = form.useGasless ? relayError : txError;
 
   // ── Form Handlers ──
 
@@ -140,12 +147,11 @@ export default function SubmitJobPage() {
         setStep("signing");
 
         if (form.useGasless && freeTxCount > 0) {
-          // Gasless: would call forwarder — for now just submit normally
-          // TODO: Implement actual gasless relay call
           setFreeTxCount((prev) => prev - 1);
+          await relaySubmitJob(ipfsResult.bytes32, BigInt(form.computeUnits), form.paymentAmount);
+        } else {
+          await submitJob(ipfsResult.bytes32, BigInt(form.computeUnits), form.paymentAmount);
         }
-
-        await submitJob(ipfsResult.bytes32, BigInt(form.computeUnits), form.paymentAmount);
         setStep("confirming");
       } catch (err) {
         console.error("Submit error:", err);
@@ -153,7 +159,7 @@ export default function SubmitJobPage() {
         setStep("error");
       }
     },
-    [form, isConnected, address, uploadSpec, uploadFile, uploadedFile, submitJob, freeTxCount]
+    [form, isConnected, address, uploadSpec, uploadFile, uploadedFile, submitJob, relaySubmitJob, freeTxCount]
   );
 
   // Track tx confirmation
@@ -162,11 +168,11 @@ export default function SubmitJobPage() {
   }, [isSuccess]);
 
   React.useEffect(() => {
-    if (txError) {
-      setErrorMsg(txError.message);
+    if (currentError) {
+      setErrorMsg(currentError.message);
       setStep("error");
     }
-  }, [txError]);
+  }, [currentError]);
 
   // ── Compute units → human time ──
   const computeTimeLabel = (seconds: number) => {
