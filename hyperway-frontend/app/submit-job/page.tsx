@@ -5,8 +5,16 @@ import Link from "next/link";
 import { useAccount } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useUploadJobSpec, useUploadFile } from "@/hooks/useIPFS";
-import { useSubmitJob, useRelaySubmitJob } from "@/hooks/useMarketplace";
 import type { JobSpec } from "@/lib/ipfs";
+import {
+  useSubmitJob,
+  useRelaySubmitJob,
+  useSubmitJobWithUSDT,
+  useSubmitJobWithXCM,
+  useApproveUSDT,
+  useUSDTAllowance,
+} from "@/hooks/useMarketplace";
+import { parseUnits } from "viem";
 
 // ─────────────────────────────────────────────
 //  Constants
@@ -34,6 +42,7 @@ interface FormState {
   parameters: string;
   useGasless: boolean;
   useXCM: boolean;
+  paymentCurrency: "PAS" | "USDT";
 }
 
 const initialForm: FormState = {
@@ -48,6 +57,7 @@ const initialForm: FormState = {
   parameters: '{\n  "batch_size": 32,\n  "num_epochs": 10\n}',
   useGasless: false,
   useXCM: false,
+  paymentCurrency: "PAS",
 };
 
 // ─────────────────────────────────────────────
@@ -59,6 +69,10 @@ export default function SubmitJobPage() {
   const { uploadSpec, isUploading, error: ipfsError, reset: resetIPFS } = useUploadJobSpec();
   const { upload: uploadFile, isUploading: isUploadingFile } = useUploadFile();
   const { submitJob, hash: txHash, isPending: txPending, isConfirming: txConfirming, isSuccess: txSuccess, error: txError } = useSubmitJob();
+  const { submitJobWithUSDT, hash: usdtHash, isPending: usdtPending, isConfirming: usdtConfirming, isSuccess: usdtSuccess, error: usdtError } = useSubmitJobWithUSDT();
+  const { submitJobWithXCM, hash: xcmHash, isPending: xcmPending, isConfirming: xcmConfirming, isSuccess: xcmSuccess, error: xcmError } = useSubmitJobWithXCM();
+  const { approveUSDT, hash: approveHash, isPending: approvePending, isConfirming: approveConfirming, isSuccess: approveSuccess, error: approveError } = useApproveUSDT();
+  const { data: usdtAllowance } = useUSDTAllowance(address);
   const { relaySubmitJob, hash: relayHash, isPending: relayPending, isConfirming: relayConfirming, isSuccess: relaySuccess, error: relayError } = useRelaySubmitJob();
 
   const [form, setForm] = useState<FormState>(initialForm);
@@ -68,11 +82,11 @@ export default function SubmitJobPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const hash = form.useGasless ? relayHash : txHash;
-  const isPending = form.useGasless ? relayPending : txPending;
-  const isConfirming = form.useGasless ? relayConfirming : txConfirming;
-  const isSuccess = form.useGasless ? relaySuccess : txSuccess;
-  const currentError = form.useGasless ? relayError : txError;
+  const hash = form.paymentCurrency === "USDT" ? (approvePending || approveConfirming ? approveHash : usdtHash) : form.useXCM ? xcmHash : form.useGasless ? relayHash : txHash;
+  const isPending = form.paymentCurrency === "USDT" ? (approvePending || usdtPending) : form.useXCM ? xcmPending : form.useGasless ? relayPending : txPending;
+  const isConfirming = form.paymentCurrency === "USDT" ? (approveConfirming || usdtConfirming) : form.useXCM ? xcmConfirming : form.useGasless ? relayConfirming : txConfirming;
+  const isSuccess = form.paymentCurrency === "USDT" ? usdtSuccess : form.useXCM ? xcmSuccess : form.useGasless ? relaySuccess : txSuccess;
+  const currentError = form.paymentCurrency === "USDT" ? (approveError || usdtError) : form.useXCM ? xcmError : form.useGasless ? relayError : txError;
 
   // ── Form Handlers ──
 
@@ -146,7 +160,26 @@ export default function SubmitJobPage() {
         // Step 2: Submit to smart contract
         setStep("signing");
 
-        if (form.useGasless && freeTxCount > 0) {
+        if (form.paymentCurrency === "USDT") {
+          // USDT has 6 decimals on Asset Hub
+          const usdtAmount = parseUnits(form.paymentAmount, 6);
+
+          // Check allowance
+          if (!usdtAllowance || usdtAllowance < usdtAmount) {
+            await approveUSDT(usdtAmount);
+            // After approval, we wait for confirm then caller will need to click submit again 
+            // OR we can chain it, but usually simpler to just let them click again or wait
+            return; 
+          }
+
+          await submitJobWithUSDT(ipfsResult.bytes32, BigInt(form.computeUnits), usdtAmount);
+        } else if (form.useXCM) {
+          // Demonstration XCM message (raw V5)
+          // For now, we use a placeholder or a simple "BuyExecution" hex
+          // In a real app, this would be generated based on the target chain
+          const dummyXcm: `0x${string}` = "0x01020304"; // Placeholder for V5 instructions
+          await submitJobWithXCM(ipfsResult.bytes32, BigInt(form.computeUnits), dummyXcm);
+        } else if (form.useGasless && freeTxCount > 0) {
           setFreeTxCount((prev) => prev - 1);
           await relaySubmitJob(ipfsResult.bytes32, BigInt(form.computeUnits), form.paymentAmount);
         } else {
@@ -159,7 +192,7 @@ export default function SubmitJobPage() {
         setStep("error");
       }
     },
-    [form, isConnected, address, uploadSpec, uploadFile, uploadedFile, submitJob, relaySubmitJob, freeTxCount]
+    [form, isConnected, address, uploadSpec, uploadFile, uploadedFile, submitJob, relaySubmitJob, submitJobWithUSDT, submitJobWithXCM, approveUSDT, usdtAllowance, freeTxCount]
   );
 
   // Track tx confirmation
@@ -500,12 +533,40 @@ export default function SubmitJobPage() {
                         required
                       />
                       <span className="absolute right-4 top-1/2 -translate-y-1/2 text-purple-400 font-mono text-sm">
-                        PAS
+                        {form.paymentCurrency}
                       </span>
                     </div>
                     <p className="text-xs text-gray-600 mt-1">
                       Escrowed on-chain until job completes
                     </p>
+                  </div>
+
+                  {/* Currency Selection */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => updateField("paymentCurrency", "PAS")}
+                      className={`p-3 rounded-xl border-2 transition-all ${
+                        form.paymentCurrency === "PAS"
+                          ? "border-purple-500 bg-purple-500/10 text-white"
+                          : "border-gray-800 bg-[#111] text-gray-500 hover:border-gray-700"
+                      }`}
+                    >
+                      <div className="text-sm font-bold">PAS</div>
+                      <div className="text-[10px] opacity-60">Native Token</div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateField("paymentCurrency", "USDT")}
+                      className={`p-3 rounded-xl border-2 transition-all ${
+                        form.paymentCurrency === "USDT"
+                          ? "border-purple-500 bg-purple-500/10 text-white"
+                          : "border-gray-800 bg-[#111] text-gray-500 hover:border-gray-700"
+                      }`}
+                    >
+                      <div className="text-sm font-bold">USDT</div>
+                      <div className="text-[10px] opacity-60">Asset Hub</div>
+                    </button>
                   </div>
 
                   {/* XCM Toggle */}
@@ -590,6 +651,7 @@ export default function SubmitJobPage() {
                   <SummaryRow label="Payment" value={`${form.paymentAmount} PAS`} accent />
                   <SummaryRow label="Min VRAM" value={`${form.minVRAM} GB`} />
                   <SummaryRow label="GPU" value={form.preferredGPU} />
+                  <SummaryRow label="Payment Asset" value={form.paymentCurrency} accent />
                   <SummaryRow label="Gas" value={form.useGasless ? "Free ⚡" : "User pays"} />
                   <SummaryRow label="Payment via" value={form.useXCM ? "XCM 🔗" : "Direct"} />
                   {uploadedFile && (
@@ -622,13 +684,15 @@ export default function SubmitJobPage() {
                   >
                     {isUploading || isUploadingFile
                       ? "Uploading to IPFS..."
-                      : isPending
-                        ? "Confirm in wallet..."
-                        : isConfirming
-                          ? "Confirming on-chain..."
-                          : form.useGasless
-                            ? "Sign & Submit (Gasless) ⚡"
-                            : "Submit Job"}
+                      : (form.paymentCurrency === "USDT" && (!usdtAllowance || usdtAllowance < parseUnits(form.paymentAmount, 6)))
+                        ? "Approve USDT"
+                        : isPending
+                          ? "Confirm in wallet..."
+                          : isConfirming
+                            ? "Confirming on-chain..."
+                            : form.useGasless
+                              ? "Sign & Submit (Gasless) ⚡"
+                              : "Submit Job"}
                   </button>
                 )}
               </div>

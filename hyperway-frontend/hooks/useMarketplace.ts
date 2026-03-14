@@ -10,6 +10,7 @@ import { useSignTypedData, usePublicClient, useSignMessage } from "wagmi";
 import {
   HYPERWAY_CONTRACT_ADDRESS,
   FORWARDER_ADDRESS,
+  USDT_PRECOMPILE_ADDRESS,
 } from "@/constants";
 import { HYPERWAY_ABI, FORWARDER_ABI } from "@/constants/abis";
 
@@ -144,6 +145,17 @@ export function useTrustedForwarder() {
   });
 }
 
+/** Utility: Convert H160 address to Substrate AccountId32 via System Precompile */
+export function useSubstrateAccountId(evmAddress: `0x${string}` | undefined) {
+  return useReadContract({
+    abi: HYPERWAY_ABI,
+    address: HYPERWAY_CONTRACT_ADDRESS,
+    functionName: "getSubstrateAccountId",
+    args: evmAddress ? [evmAddress] : undefined,
+    query: { enabled: !!evmAddress },
+  });
+}
+
 // ─────────────────────────────────────────────
 //  Write Hooks
 // ─────────────────────────────────────────────
@@ -165,6 +177,64 @@ export function useSubmitJob() {
   };
 
   return { submitJob, hash, isPending, isConfirming, isSuccess, error: error || receiptError };
+}
+
+/** Submit a compute job paying with native USDT (Asset ID 1984) */
+export function useSubmitJobWithUSDT() {
+  const { writeContract, data: hash, isPending, error } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess, error: receiptError } =
+    useWaitForTransactionReceipt({ hash });
+
+  const submitJobWithUSDT = (
+    specCID: `0x${string}`,
+    computeUnits: bigint,
+    usdtAmount: bigint
+  ) => {
+    writeContract({
+      abi: HYPERWAY_ABI,
+      address: HYPERWAY_CONTRACT_ADDRESS,
+      functionName: "submitJobWithUSDT",
+      args: [specCID, computeUnits, usdtAmount],
+    });
+  };
+
+  return {
+    submitJobWithUSDT,
+    hash,
+    isPending,
+    isConfirming,
+    isSuccess,
+    error: error || receiptError,
+  };
+}
+
+/** Submit a compute job using XCM cross-chain payment (raw V5) */
+export function useSubmitJobWithXCM() {
+  const { writeContract, data: hash, isPending, error } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess, error: receiptError } =
+    useWaitForTransactionReceipt({ hash });
+
+  const submitJobWithXCM = (
+    specCID: `0x${string}`,
+    computeUnits: bigint,
+    xcmMessage: `0x${string}`
+  ) => {
+    writeContract({
+      abi: HYPERWAY_ABI,
+      address: HYPERWAY_CONTRACT_ADDRESS,
+      functionName: "submitJobWithXCM",
+      args: [specCID, computeUnits, xcmMessage],
+    });
+  };
+
+  return {
+    submitJobWithXCM,
+    hash,
+    isPending,
+    isConfirming,
+    isSuccess,
+    error: error || receiptError,
+  };
 }
 
 /** Submit a compute job using a gasless relay (relayer pays gas + escrow) */
@@ -267,6 +337,57 @@ export function useAssignJob() {
   };
 
   return { assignJob, hash, isPending, isConfirming, isSuccess, error };
+}
+
+/** Get USDT allowance for the marketplace contract */
+export function useUSDTAllowance(owner: `0x${string}` | undefined) {
+  return useReadContract({
+    abi: [
+      {
+        type: "function",
+        name: "allowance",
+        inputs: [
+          { name: "owner", type: "address" },
+          { name: "spender", type: "address" },
+        ],
+        outputs: [{ name: "", type: "uint256" }],
+        stateMutability: "view",
+      },
+    ] as const,
+    address: USDT_PRECOMPILE_ADDRESS,
+    functionName: "allowance",
+    args: owner ? [owner, HYPERWAY_CONTRACT_ADDRESS] : undefined,
+    query: { enabled: !!owner },
+  });
+}
+
+/** Approve USDT for the marketplace contract */
+export function useApproveUSDT() {
+  const { writeContract, data: hash, isPending, error } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess, error: receiptError } =
+    useWaitForTransactionReceipt({ hash });
+
+  const approveUSDT = (amount: bigint) => {
+    writeContract({
+      abi: [
+        {
+          type: "function",
+          name: "approve",
+          inputs: [
+            { name: "spender", type: "address" },
+            { name: "value", type: "uint256" },
+          ],
+          outputs: [{ name: "", type: "bool" }],
+          stateMutability: "nonpayable",
+        },
+      ] as const,
+      address: USDT_PRECOMPILE_ADDRESS,
+      functionName: "approve",
+      args: [HYPERWAY_CONTRACT_ADDRESS, amount],
+    });
+  };
+
+  return { approveUSDT, hash, isPending, isConfirming, isSuccess, error: error || receiptError };
 }
 
 /** Submit proof of completed work */
