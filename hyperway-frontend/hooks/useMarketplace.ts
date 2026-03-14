@@ -6,7 +6,7 @@ import {
 } from "wagmi";
 import { useState } from "react";
 import { parseEther, toHex, encodeFunctionData } from "viem";
-import { useSignTypedData, usePublicClient } from "wagmi";
+import { useSignTypedData, usePublicClient, useSignMessage } from "wagmi";
 import {
   HYPERWAY_CONTRACT_ADDRESS,
   FORWARDER_ADDRESS,
@@ -151,7 +151,7 @@ export function useTrustedForwarder() {
 /** Submit a compute job with escrowed DOT payment */
 export function useSubmitJob() {
   const { writeContract, data: hash, isPending, error } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } =
+  const { isLoading: isConfirming, isSuccess, error: receiptError } =
     useWaitForTransactionReceipt({ hash });
 
   const submitJob = (specCID: `0x${string}`, computeUnits: bigint, paymentEther: string) => {
@@ -164,114 +164,54 @@ export function useSubmitJob() {
     });
   };
 
-  return { submitJob, hash, isPending, isConfirming, isSuccess, error };
+  return { submitJob, hash, isPending, isConfirming, isSuccess, error: error || receiptError };
 }
 
-/** Submit a compute job using a gasless meta-transaction relay */
+/** Submit a compute job using a gasless relay (relayer pays gas + escrow) */
 export function useRelaySubmitJob() {
-  const { signTypedDataAsync } = useSignTypedData();
-  const publicClient = usePublicClient();
   const { address } = useAccount();
+  const { signMessageAsync } = useSignMessage();
 
-  // Local state to model the same API as useWriteContract
   const [hash, setHash] = useState<`0x${string}`>();
   const [isPending, setIsPending] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState<Error | null>(null);
-
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
   const relaySubmitJob = async (specCID: `0x${string}`, computeUnits: bigint, paymentEther: string) => {
     try {
       setIsPending(true);
+      setIsConfirming(false);
+      setIsSuccess(false);
       setError(null);
-      if (!address || !publicClient) throw new Error("Wallet not connected");
+      setHash(undefined);
+      if (!address) throw new Error("Wallet not connected");
 
-      // 1. Get Forwarder Domain
-      const domainRes = await publicClient.readContract({
-        address: FORWARDER_ADDRESS,
-        abi: FORWARDER_ABI,
-        functionName: "eip712Domain",
-      });
-      const domain = {
-        name: domainRes[1],
-        version: domainRes[2],
-        chainId: Number(domainRes[3]),
-        verifyingContract: domainRes[4],
-      };
+      // 1. Construct a human-readable message for the user to sign
+      const authMessage = [
+        `Hyperway Gasless Job Submission`,
+        `Spec: ${specCID}`,
+        `Compute: ${computeUnits.toString()} units`,
+        `Payment: ${paymentEther} PAS`,
+        `From: ${address}`,
+        `Timestamp: ${Date.now()}`,
+      ].join("\n");
 
-      // 2. Get User Nonce
-      const nonce = await publicClient.readContract({
-        address: FORWARDER_ADDRESS,
-        abi: FORWARDER_ABI,
-        functionName: "nonces",
-        args: [address],
-      });
+      // 2. User signs the message (MetaMask shows "Sign Message" — no gas fee)
+      const signature = await signMessageAsync({ message: authMessage });
 
-      // 3. Encode the target contract call
-      const data = encodeFunctionData({
-        abi: HYPERWAY_ABI,
-        functionName: "submitJob",
-        args: [specCID, computeUnits],
-      });
-
-      // 4. Construct ForwardRequest struct (the fields to sign)
-      // Note: the "value" must cover the native token sent. Wait, useSubmitJob sends `value: parseEther(paymentEther)`.
-      // The relayer will actually be the one paying the msg.value? NO!
-      // ERC2771 forwarders usually require the relayer to supply the msg.value, meaning the relayer PAYS the DOT!
-      // But wait, the user is submitting a job and paying PAS (Paseo). 
-      // If `value > 0`, the forwarder expects the relayer to send the value, OR the forwarder pulls it from the user?
-      // OpenZeppelin ERC2771Forwarder allows forwarding `value`, but the RELAYER must attach `msg.value` to the execute call.
-      // Wait, if the relayer pays the PAS, the user gets it for free? That's not right. The user is supposed to pay PAS to the marketplace.
-      // Usually, ERC20 tokens are used for payment in gasless transactions, via `approve` or `permit`. Alternatively, native tokens cannot be easily delegated unless the relayer is giving them away.
-      // Let's check `submitJob` logic.
-      // I will implement it assuming we pass `value: parseEther(paymentEther)`.
-      const value = parseEther(paymentEther);
-      const gas = BigInt(2000000); // Hardcode gas limit for the inner call
-      const deadline = Math.floor(Date.now() / 1000) + 3600; // 1 hour
-
-      const message = {
-        from: address,
-        to: HYPERWAY_CONTRACT_ADDRESS,
-        value,
-        gas,
-        nonce,
-        deadline,
-        data,
-      };
-
-      const types = {
-        ForwardRequest: [
-          { name: "from", type: "address" },
-          { name: "to", type: "address" },
-          { name: "value", type: "uint256" },
-          { name: "gas", type: "uint256" },
-          { name: "nonce", type: "uint256" },
-          { name: "deadline", type: "uint48" },
-          { name: "data", type: "bytes" },
-        ],
-      } as const;
-
-      // 5. Sign Data
-      const signature = await signTypedDataAsync({
-        domain,
-        types,
-        primaryType: "ForwardRequest",
-        message,
-      });
-
-      // 6. Send to API Relayer
+      // 3. Send to the relay API
+      setIsConfirming(true);
       const res = await fetch("/api/relay", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          request: {
-            ...message,
-            signature,
-            value: message.value.toString(),
-            gas: message.gas.toString(),
-            nonce: message.nonce.toString(),
-            deadline: message.deadline.toString(),
-          },
+          specCID,
+          computeUnits: computeUnits.toString(),
+          paymentAmount: paymentEther,
+          userAddress: address,
+          signature,
+          message: authMessage,
         }),
       });
 
@@ -279,11 +219,13 @@ export function useRelaySubmitJob() {
       if (!res.ok) throw new Error(json.error || "Relay request failed");
 
       setHash(json.hash);
+      setIsSuccess(true);
     } catch (err: any) {
       setError(err);
       throw err;
     } finally {
       setIsPending(false);
+      setIsConfirming(false);
     }
   };
 
