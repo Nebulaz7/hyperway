@@ -545,20 +545,14 @@ contract HyperwayMarketplace is ERC2771Context, ReentrancyGuard, Ownable, Pausab
         return abi.decode(ret, (uint64, uint64));
     }
 
-    /// @notice Convert an H160 address to its Substrate AccountId32
-    /// @dev Uses the System precompile (0x0900) to perform the deterministic
-    ///      H160 → AccountId32 mapping. Useful for constructing XCM beneficiary
-    ///      fields when building raw DepositAsset instructions.
-    /// @param evmAddress The 20-byte EVM address to convert
-    /// @return accountId32 The 32-byte Substrate account identifier
     function getSubstrateAccountId(
         address evmAddress
-    ) external view returns (bytes32) {
-        (bool ok, bytes memory ret) = SYSTEM_PRECOMPILE.staticcall(
-            abi.encodeCall(ISystem.toAccountId, (evmAddress))
-        );
-        if (!ok || ret.length < 32) revert SystemPrecompileFailed();
-        return abi.decode(ret, (bytes32));
+    ) external pure returns (bytes32) {
+        // As per Polkadot Hub architecture, H160 is mapped mapped to AccountId32 by padding with 0xEE
+        // bytes20(evmAddress) represents the upper 20 bytes. We need to pad the remaining 12 bytes with 0xEE.
+        bytes20 addrBytes = bytes20(evmAddress);
+        bytes12 padding = 0xEEEEEEEEEEEEEEEEEEEEEEEE;
+        return bytes32(abi.encodePacked(addrBytes, padding));
     }
 
     /// @notice Claim (assign) a pending job as a provider
