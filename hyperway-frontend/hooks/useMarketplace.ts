@@ -153,7 +153,7 @@ export function useSubstrateAccountId(evmAddress: `0x${string}` | undefined) {
     functionName: "getSubstrateAccountId",
     args: evmAddress ? [evmAddress] : undefined,
     query: { enabled: !!evmAddress },
-  });
+  }) as any; // Using any or explicit wagmi return type if known
 }
 
 // ─────────────────────────────────────────────

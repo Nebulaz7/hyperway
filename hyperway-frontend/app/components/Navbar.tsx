@@ -57,7 +57,7 @@ const Navbar = () => {
 
 const SubstrateAddressDisplay = () => {
   const { address } = useAccount();
-  const { data: substrateId } = useSubstrateAccountId(address);
+  const { data: substrateId } = useSubstrateAccountId(address) as { data: `0x${string}` | undefined };
 
   if (!address || !substrateId) return null;
 
