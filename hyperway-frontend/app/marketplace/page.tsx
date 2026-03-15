@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Blockie from "@/app/components/Blockie";
 import { useAccount } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
@@ -115,6 +116,7 @@ function weiToPAS(wei: number): string {
 // ─────────────────────────────────────────────
 
 export default function MarketplacePage() {
+  const router = useRouter();
   const { address, isConnected } = useAccount();
   const { jobs, loading } = useRealtimeJobs();
   const { stats } = useRealtimeStats();
@@ -390,18 +392,18 @@ export default function MarketplacePage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
             {filteredJobs.map((job) => (
-              <Link key={job.job_id} href={`/marketplace/${job.job_id}`} className="block">
-                <JobCard
-                  job={job}
-                  isProvider={!!isProviderData}
-                  isConnected={isConnected}
-                  userAddress={address}
-                  isClaiming={isClaiming && claimingJobId === job.job_id}
-                  claimSuccess={claimSuccess && claimingJobId === job.job_id}
-                  onClaim={handleClaim}
-                  isNew={newJobFlash === job.job_id}
-                />
-              </Link>
+              <JobCard
+                key={job.job_id}
+                job={job}
+                isProvider={!!isProviderData}
+                isConnected={isConnected}
+                userAddress={address}
+                isClaiming={isClaiming && claimingJobId === job.job_id}
+                claimSuccess={claimSuccess && claimingJobId === job.job_id}
+                onClaim={handleClaim}
+                isNew={newJobFlash === job.job_id}
+                onClick={() => router.push(`/marketplace/${job.job_id}`)}
+              />
             ))}
           </div>
         )}
@@ -544,6 +546,7 @@ function JobCard({
   claimSuccess,
   onClaim,
   isNew,
+  onClick,
 }: {
   job: JobRow;
   isProvider: boolean;
@@ -553,6 +556,7 @@ function JobCard({
   claimSuccess: boolean;
   onClaim: (jobId: number) => void;
   isNew: boolean;
+  onClick: () => void;
 }) {
   const validBuyer = (job as any).buyer_address || (job as any).buyer || "";
   const validProvider = (job as any).provider_address || (job as any).provider || "";
@@ -564,7 +568,10 @@ function JobCard({
   const canClaim = isProvider && job.status === "PENDING" && !isBuyer;
 
   return (
-    <div className={`neo-card flex flex-col ${isNew ? "neo-flash" : ""}`}>
+    <div 
+      onClick={onClick}
+      className={`neo-card flex flex-col cursor-pointer ${isNew ? "neo-flash" : ""}`}
+    >
       {/* Header */}
       <div className="flex items-start justify-between gap-3 mb-4">
         <div className="flex items-center gap-3">
@@ -623,7 +630,10 @@ function JobCard({
       <div className="mt-auto pt-2">
         {canClaim && (
           <button
-            onClick={() => onClaim(job.job_id)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onClaim(job.job_id);
+            }}
             disabled={isClaiming}
             className="neo-btn w-full bg-purple-600 text-white text-sm py-2"
           >
@@ -649,6 +659,7 @@ function JobCard({
         {isAssignedToMe && job.status === "ASSIGNED" && (
           <Link
             href={`/dashboard?jobId=${job.job_id}`}
+            onClick={(e) => e.stopPropagation()}
             className="neo-btn w-full bg-blue-600 text-white text-sm py-2"
           >
             📤 Submit Proof

@@ -118,7 +118,8 @@ export default function SubmitJobPage() {
     isSuccess: approveSuccess,
     error: approveError,
   } = useApproveUSDT();
-  const { data: usdtAllowance, refetch: refetchAllowance } = useUSDTAllowance(address);
+  const { data: usdtAllowance, refetch: refetchAllowance } =
+    useUSDTAllowance(address);
   const {
     relaySubmitJob,
     hash: relayHash,
