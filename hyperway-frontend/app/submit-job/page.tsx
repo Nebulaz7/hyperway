@@ -14,7 +14,7 @@ import {
   useUSDTAllowance,
 } from "@/hooks/useMarketplace";
 import { parseUnits } from "viem";
-import { useUploadJobSpec, useUploadFile } from "../../hooks/useIPFS";
+import { useUploadJobSpec, useUploadFile } from "@/hooks/useIPFS";
 
 // ─────────────────────────────────────────────
 //  Constants
