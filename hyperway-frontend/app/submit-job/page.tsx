@@ -4,7 +4,7 @@ import React, { useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useAccount } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
-import { useUploadJobSpec, useUploadFile } from "@/hooks/useIPFS";
+import { useUploadJobSpec, useUploadFile } from "../../hooks/useIPFS";
 import type { JobSpec } from "@/lib/ipfs";
 import {
   useSubmitJob,
