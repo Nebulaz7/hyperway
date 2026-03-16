@@ -42,51 +42,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] grid-background">
-      {/* ── Navbar ── */}
-      <header className="sticky top-0 z-30 border-b-[3px] border-purple-500 bg-[#0a0a0a]/90 backdrop-blur-md">
-        <div className="flex justify-between items-center max-w-7xl mx-auto px-4 md:px-6 h-16">
-          <Link href="/" className="flex items-center gap-2">
-            <h1 className="text-xl font-bold text-white tracking-tight">
-              Hyperway
-              <span className="ml-2 text-[10px] font-mono text-purple-400 border border-purple-500 rounded px-1.5 py-0.5 uppercase">
-                Beta
-              </span>
-            </h1>
-          </Link>
-          <div className="flex items-center gap-3">
-            <ConnectButton.Custom>
-              {({
-                account,
-                chain,
-                openConnectModal,
-                openAccountModal,
-                mounted,
-              }) => {
-                if (!mounted) return null;
-                if (!account || !chain) {
-                  return (
-                    <button
-                      onClick={openConnectModal}
-                      className="neo-btn neo-btn-sm bg-[#1a1a1a] text-purple-300 border-purple-500"
-                    >
-                      Connect
-                    </button>
-                  );
-                }
-                return (
-                  <button
-                    onClick={openAccountModal}
-                    className="neo-btn neo-btn-sm bg-[#1a1a1a] text-purple-300 border-purple-500"
-                  >
-                    <Blockie address={account.address} size={18} />
-                    {account.displayName}
-                  </button>
-                );
-              }}
-            </ConnectButton.Custom>
-          </div>
-        </div>
-      </header>
+      {/* No local header, using global Navbar from layout */}
 
       <main className="max-w-7xl mx-auto px-4 md:px-6 py-8 md:py-12">
         {!isConnected ? (

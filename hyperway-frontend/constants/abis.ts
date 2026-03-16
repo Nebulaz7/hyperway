@@ -1,8 +1,8 @@
 // Auto-generated from forge build output — do NOT edit manually.
 // Regenerate: copy abi from out/HyperwayMarketplace.sol/HyperwayMarketplace.json
-import abi from "@/abis/HyperwayMarketplace.abi.json";
+import artifact from "@/abis/HyperwayMarketplace.abi.json";
 
-export const HYPERWAY_ABI = abi as typeof abi;
+export const HYPERWAY_ABI = artifact.abi;
 
 // ERC2771Forwarder ABI — only the functions we call from frontend
 export const FORWARDER_ABI = [

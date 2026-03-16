@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Blockie from "@/app/components/Blockie";
 import { useAccount } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
@@ -115,6 +116,7 @@ function weiToPAS(wei: number): string {
 // ─────────────────────────────────────────────
 
 export default function MarketplacePage() {
+  const router = useRouter();
   const { address, isConnected } = useAccount();
   const { jobs, loading } = useRealtimeJobs();
   const { stats } = useRealtimeStats();
@@ -207,85 +209,7 @@ export default function MarketplacePage() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] grid-background">
-      {/* ── Navbar ── */}
-      <header className="sticky top-0 z-30 border-b-[3px] border-purple-500 bg-[#0a0a0a]/90 backdrop-blur-md">
-        <div className="flex justify-between items-center max-w-7xl mx-auto px-4 md:px-6 h-16">
-          <Link href="/" className="flex items-center gap-2">
-            <h1 className="text-xl font-bold text-white tracking-tight">
-              Hyperway
-              <span className="ml-2 text-[10px] font-mono text-purple-400 border border-purple-500 rounded px-1.5 py-0.5 uppercase">
-                Beta
-              </span>
-            </h1>
-          </Link>
-          <div className="flex items-center gap-3">
-            <Link
-              href="/submit-job"
-              className="neo-btn neo-btn-sm bg-purple-600 text-white"
-            >
-              + Submit Job
-            </Link>
-            <ConnectButton.Custom>
-              {({
-                account,
-                chain,
-                openConnectModal,
-                openAccountModal,
-                mounted,
-              }): React.ReactNode => {
-                if (!mounted) return null;
-                if (!account || !chain) {
-                  return (
-                    <>
-                      <Link
-                        href="/provider-dashboard"
-                        className="text-sm font-bold text-gray-400 hover:text-white transition-colors"
-                      >
-                        Provider Dashboard
-                      </Link>
-                      <Link
-                        href="/marketplace"
-                        className="text-sm font-bold text-gray-400 hover:text-white transition-colors"
-                      >
-                        Marketplace
-                      </Link>
-                      <button
-                        onClick={openConnectModal}
-                        className="neo-btn neo-btn-sm bg-[#1a1a1a] text-purple-300 border-purple-500"
-                      >
-                        Connect
-                      </button>
-                    </>
-                  );
-                }
-                return (
-                  <div className="flex items-center gap-4">
-                    <Link
-                      href="/my-jobs"
-                      className="text-sm font-bold text-gray-400 hover:text-white transition-colors"
-                    >
-                      My Jobs
-                    </Link>
-                    <Link
-                      href="/provider-dashboard"
-                      className="text-sm font-bold text-gray-400 hover:text-white transition-colors"
-                    >
-                      Provider Dashboard
-                    </Link>
-                    <button
-                      onClick={openAccountModal}
-                      className="neo-btn neo-btn-sm bg-[#1a1a1a] text-purple-300 border-purple-500"
-                    >
-                      <Blockie address={account.address} size={18} />
-                      {account.displayName}
-                    </button>
-                  </div>
-                );
-              }}
-            </ConnectButton.Custom>
-          </div>
-        </div>
-      </header>
+      {/* No local header, using global Navbar from layout */}
 
       <main className="max-w-7xl mx-auto px-4 md:px-6 py-8 md:py-10">
         {/* ── Header + Stats ── */}
@@ -468,18 +392,18 @@ export default function MarketplacePage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
             {filteredJobs.map((job) => (
-              <Link key={job.job_id} href={`/marketplace/${job.job_id}`} className="block">
-                <JobCard
-                  job={job}
-                  isProvider={!!isProviderData}
-                  isConnected={isConnected}
-                  userAddress={address}
-                  isClaiming={isClaiming && claimingJobId === job.job_id}
-                  claimSuccess={claimSuccess && claimingJobId === job.job_id}
-                  onClaim={handleClaim}
-                  isNew={newJobFlash === job.job_id}
-                />
-              </Link>
+              <JobCard
+                key={job.job_id}
+                job={job}
+                isProvider={!!isProviderData}
+                isConnected={isConnected}
+                userAddress={address}
+                isClaiming={isClaiming && claimingJobId === job.job_id}
+                claimSuccess={claimSuccess && claimingJobId === job.job_id}
+                onClaim={handleClaim}
+                isNew={newJobFlash === job.job_id}
+                onClick={() => router.push(`/marketplace/${job.job_id}`)}
+              />
             ))}
           </div>
         )}
@@ -622,6 +546,7 @@ function JobCard({
   claimSuccess,
   onClaim,
   isNew,
+  onClick,
 }: {
   job: JobRow;
   isProvider: boolean;
@@ -631,6 +556,7 @@ function JobCard({
   claimSuccess: boolean;
   onClaim: (jobId: number) => void;
   isNew: boolean;
+  onClick: () => void;
 }) {
   const validBuyer = (job as any).buyer_address || (job as any).buyer || "";
   const validProvider = (job as any).provider_address || (job as any).provider || "";
@@ -642,7 +568,10 @@ function JobCard({
   const canClaim = isProvider && job.status === "PENDING" && !isBuyer;
 
   return (
-    <div className={`neo-card flex flex-col ${isNew ? "neo-flash" : ""}`}>
+    <div 
+      onClick={onClick}
+      className={`neo-card flex flex-col cursor-pointer ${isNew ? "neo-flash" : ""}`}
+    >
       {/* Header */}
       <div className="flex items-start justify-between gap-3 mb-4">
         <div className="flex items-center gap-3">
@@ -701,7 +630,10 @@ function JobCard({
       <div className="mt-auto pt-2">
         {canClaim && (
           <button
-            onClick={() => onClaim(job.job_id)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onClaim(job.job_id);
+            }}
             disabled={isClaiming}
             className="neo-btn w-full bg-purple-600 text-white text-sm py-2"
           >
@@ -727,6 +659,7 @@ function JobCard({
         {isAssignedToMe && job.status === "ASSIGNED" && (
           <Link
             href={`/dashboard?jobId=${job.job_id}`}
+            onClick={(e) => e.stopPropagation()}
             className="neo-btn w-full bg-blue-600 text-white text-sm py-2"
           >
             📤 Submit Proof
