@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { uploadFile } from "@/lib/ipfs-server";
 
 export async function POST(req: Request) {
   try {
@@ -10,64 +11,23 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
-    const pinataJwt = process.env.PINATA_JWT;
-    if (!pinataJwt) {
-      return NextResponse.json({ error: "Pinata JWT not configured" }, { status: 500 });
-    }
-
-    // Convert file to Blob for Pinata
-    const pinataFormData = new FormData();
-    pinataFormData.append("file", file, name || file.name);
-
-    // Filter out internal metadata keys
-    const pinataMetadata: Record<string, string> = {};
-    if (formData && typeof formData.forEach === 'function') {
-      formData.forEach((value, key) => {
-        if (key !== "file" && key !== "name" && typeof value === "string") {
-          pinataMetadata[key] = value;
-        }
-      });
-    }
-
-    if (Object.keys(pinataMetadata).length > 0) {
-      pinataFormData.append(
-        "pinataMetadata",
-        JSON.stringify({
-          name: name || file.name,
-          keyvalues: pinataMetadata,
-        })
-      );
-    }
-
-    const res = await fetch("https://api.pinata.cloud/pinning/pinFileToIPFS", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${pinataJwt}`,
-      },
-      body: pinataFormData,
+    // Filter out internal metadata keys to build keyvalues
+    const metadata: Record<string, string> = {};
+    formData.forEach((value, key) => {
+      if (key !== "file" && key !== "name" && typeof value === "string") {
+        metadata[key] = value;
+      }
     });
 
-    if (!res.ok) {
-      const errorText = await res.text();
-      console.error("Pinata error:", errorText);
-      return NextResponse.json(
-        { error: `Pinata upload failed: ${res.statusText}` },
-        { status: res.status }
-      );
-    }
+    // Use our server-side utility which handles Pinata SDK and CID conversion
+    const result = await uploadFile(file, name || file.name, metadata);
 
-    const json = await res.json();
-
-    return NextResponse.json({
-      cid: json.IpfsHash,
-      url: `https://${process.env.NEXT_PUBLIC_PINATA_GATEWAY}/${json.IpfsHash}`,
-      size: json.PinSize,
-      name: name || file.name,
-    });
+    return NextResponse.json(result);
   } catch (error) {
-    console.error("Error uploading file to IPFS:", error);
+    console.error("[API /ipfs/upload-file] Error:", error);
+    const message = error instanceof Error ? error.message : "Internal server error";
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: message },
       { status: 500 }
     );
   }
