@@ -16,7 +16,7 @@ import {ISystem} from "./interfaces/ISystem.sol";
 ///         Uses smart contract escrow, collateral staking, proof-of-compute verification,
 ///         XCM precompiles for cross-chain payments, and ERC2771 for gasless meta-transactions.
 ///
-///         ═══ Polkadot "Superpowers" Used ═══
+///         ═══ Native Integrations Used ═══
 ///         • XCM V5 Precompile (0xA0000)  — Cross-chain asset transfers (raw instructions)
 ///         • System Precompile (0x0900)   — H160 → AccountId32 mapping for XCM beneficiaries
 ///         • Assets Precompile (0x0120…)  — Native USDT (Asset ID 1984) ERC-20 interface

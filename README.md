@@ -108,48 +108,21 @@ The AI compute market is experiencing explosive growth, yet it remains dominated
 
 ## Track 2 — PVM Smart Contracts
 
-Hyperway is built for **Track 2: PVM Smart Contracts**, targeting all three categories:
+## Track 2 — PVM Smart Contracts
 
-### Category 1: PVM Experiments
+Hyperway is strategically built for **Track 2: PVM Smart Contracts** on Polkadot Hub, leveraging native runtime features that extend beyond standard EVM capabilities:
 
-Our contract is compiled with Solidity `0.8.28` and deployed directly to Polkadot Hub's EVM-compatible environment. We use the `via_ir` compilation pipeline (enabled in `foundry.toml`) for optimal bytecode generation on the PolkaVM execution layer.
+### Native Asset Integration (Category 2)
+Hyperway implements deep integration with **Polkadot Native USDT (Asset ID 1984)**. By utilizing the deterministic Assets precompile, the marketplace facilitates trustless escrow using the canonical asset managed by the Polkadot Assets pallet. 
 
-### Category 2: Applications Using Polkadot Native Assets
+- **Direct Accessibility:** No wrapped versions or bridges; the contract interacts directly with the system-level asset.
+- **ERC-20 Compatibility:** Utilizes the native ERC-20 interface exposed by Polkadot Hub for seamless integration with existing Solidity patterns.
 
-Hyperway integrates **native USDT (Asset ID 1984)** directly through the deterministic ERC-20 precompile:
+### Polkadot Native Functionality via Precompiles (Category 3)
+We utilize Polkadot Hub’s specialized precompiles to achieve cross-chain interoperability and deterministic account mapping:
 
-```solidity
-// USDT precompile mapped from Asset ID 1984 → H160 address
-address public constant USDT_PRECOMPILE =
-    0x000007c000000000000000000000000001200000;
-
-function submitJobWithUSDT(
-    bytes32 specCID,
-    uint256 computeUnits,
-    uint256 usdtAmount
-) external whenNotPaused nonReentrant returns (uint256) {
-    // Transfer USDT from buyer to this contract via the native ERC-20 precompile
-    (bool transferOk, bytes memory transferRet) = USDT_PRECOMPILE.call(
-        abi.encodeWithSignature(
-            "transferFrom(address,address,uint256)",
-            sender, address(this), usdtAmount
-        )
-    );
-    // ... escrow and create job
-}
-```
-
-This is **not** a wrapped/bridged token — it's the canonical USDT from Polkadot's Assets pallet, accessible through a native precompile. No bridges, no wrapping, no third-party dependencies.
-
-### Category 3: Accessing Polkadot Native Functionality — Build with Precompiles
-
-Hyperway uses **three Polkadot Hub precompiles**:
-
-| Precompile | Address | Purpose |
-|---|---|---|
-| **XCM** | `0x000...0A0000` | Execute raw XCM V5 instructions for cross-chain payment settlement |
-| **System** | `0x000...0900` | Convert H160 (EVM) addresses to AccountId32 (Substrate) for XCM beneficiary encoding |
-| **Assets (USDT)** | `0x000007C0...01200000` | Native ERC-20 interface for Polkadot USDT (Asset ID 1984) |
+- **XCM V5 Precompile (`0xA0000`):** Enables cross-chain payment settlement using raw, SCALE-encoded XCM instructions. This allows users to pay for compute using assets located on other parachains.
+- **System Precompile (`0x0900`):** Performs critical H160 (EVM) to AccountId32 (Substrate) conversion, ensuring that XCM beneficiaries are correctly mapped for multi-chain delivery.
 
 **XCM V5 Integration** — The contract executes raw, SCALE-encoded XCM V5 instructions (not wrapped in `VersionedXcm`):
 
