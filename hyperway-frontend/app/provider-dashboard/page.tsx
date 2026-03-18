@@ -13,6 +13,7 @@ import {
 import { supabase } from "@/config/supabase";
 import type { Database } from "@/database.types";
 import Blockie from "@/app/components/Blockie";
+import DaemonStatusPanel from "@/app/components/DaemonStatusPanel";
 
 type JobRow = Database["public"]["Tables"]["jobs"]["Row"];
 
@@ -387,8 +388,13 @@ export default function ProviderDashboardPage() {
                 )}
               </div>
 
-              {/* ── Completed History ── */}
-              <div>
+              {/* ── Daemon Status + Completed History ── */}
+              <div className="space-y-6">
+                {/* Live Daemon Status */}
+                <DaemonStatusPanel providerAddress={address!} />
+
+                {/* ── Completed History ── */}
+                <div>
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-xl font-bold text-white">History</h3>
                   <span className="text-gray-500 text-sm">
@@ -425,6 +431,7 @@ export default function ProviderDashboardPage() {
                 </div>
               </div>
             </div>
+          </div>
           </>
         ) : (
           /* ── UNREGISTERED ENROLLMENT VIEW ── */

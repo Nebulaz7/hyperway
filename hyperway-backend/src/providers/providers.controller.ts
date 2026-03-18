@@ -24,6 +24,11 @@ export class ProvidersController {
     });
   }
 
+  @Get(':address/daemon')
+  async getDaemonStatus(@Param('address') address: string) {
+    return this.providers.getDaemonStatus(address);
+  }
+
   @Get(':address')
   async findOne(@Param('address') address: string) {
     const provider = await this.providers.findOne(address);

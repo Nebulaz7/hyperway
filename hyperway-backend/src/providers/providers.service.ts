@@ -54,4 +54,37 @@ export class ProvidersService {
 
     return { ...provider, recent_jobs: jobs ?? [] };
   }
+
+  async getDaemonStatus(address: string) {
+    const normalised = address.toLowerCase();
+
+    const { data, error } = await this.supabase
+      .getClient()
+      .from('daemon_status')
+      .select('*')
+      .eq('provider_address', normalised)
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (error) {
+      this.logger.error(`getDaemonStatus error: ${error.message}`);
+      throw error;
+    }
+
+    const events = data ?? [];
+
+    // Daemon is considered online when the last heartbeat was within 90 s.
+    // (heartbeat interval = 30 s, so two missed beats before marking offline)
+    const lastHeartbeat = events.find((e) => e.event_type === 'heartbeat');
+    const isOnline = lastHeartbeat
+      ? Date.now() - new Date(lastHeartbeat.created_at as string).getTime() <
+        90_000
+      : false;
+
+    return {
+      isOnline,
+      lastHeartbeat: lastHeartbeat?.created_at ?? null,
+      events,
+    };
+  }
 }
