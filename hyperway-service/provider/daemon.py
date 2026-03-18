@@ -9,7 +9,7 @@ import state
 
 logger = logging.getLogger(__name__)
 
-POLL_INTERVAL = int(os.getenv("POLL_INTERVAL", "15"))  # seconds between polls
+POLL_INTERVAL = int(os.getenv("POLL_INTERVAL", "15"))
 MAX_RETRIES = 3
 
 
@@ -38,15 +38,11 @@ class Daemon:
                 logger.error(f"Unexpected error in poll loop: {e}", exc_info=True)
             time.sleep(POLL_INTERVAL)
 
-    # ------------------------------------------------------------------ #
-    #                         Internal helpers                            #
-    # ------------------------------------------------------------------ #
-
     def _poll_once(self):
         """Single iteration: fetch new events and process each unseen job."""
         latest = self.contract.get_latest_block()
         if latest <= self.last_block:
-            return  # no new blocks yet
+            return
 
         assigned = self.contract.get_assigned_jobs(
             from_block=self.last_block + 1,
@@ -108,7 +104,7 @@ class Daemon:
             state.mark_failed(job_id, "spec_download_failed")
             return
 
-        # 2. Execute compute (mock for hackathon, real workload in production)
+        # 2. Execute compute
         try:
             result = executor.execute(job_id, spec)
         except Exception as e:
@@ -123,8 +119,9 @@ class Daemon:
             state.mark_failed(job_id, "result_upload_failed")
             return
 
-        # 4. Submit proof on-chain
-        tx_hash = self.contract.submit_proof(job_id, result_cid)
+        # 4. Generate proof and submit on-chain
+        proof = executor.generate_proof(job_id, result_cid)
+        tx_hash = self.contract.submit_proof(job_id, result_cid, proof)
         if tx_hash is None:
             logger.error(f"Job {job_id}: failed to submit proof on-chain")
             state.mark_failed(job_id, "proof_submission_failed")

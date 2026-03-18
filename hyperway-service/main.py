@@ -1,25 +1,26 @@
 import logging
 import os
 import sys
+from pathlib import Path
 
 from dotenv import load_dotenv
 
-# Load .env before any module that reads environment variables
 load_dotenv()
 
-# Add provider-daemon directory to path so its modules can import each other
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "provider-daemon"))
+provider_dir = Path(__file__).resolve().parent / "provider"
+if str(provider_dir) not in sys.path:
+    sys.path.insert(0, str(provider_dir))
 
-from contract import ContractClient  # noqa: E402
-from ipfs_client import IPFSClient   # noqa: E402
-from daemon import Daemon             # noqa: E402
+from contract import ContractClient
+from ipfs_client import IPFSClient
+from daemon import Daemon
 
 REQUIRED_ENV = [
     "RPC_URL",
     "CONTRACT_ADDRESS",
     "PROVIDER_PRIVATE_KEY",
-    "PINATA_API_KEY",
-    "PINATA_SECRET_KEY",
+    "PINATA_JWT",
+    "PINATA_GATEWAY",
 ]
 
 
@@ -48,8 +49,8 @@ def main():
     )
 
     ipfs = IPFSClient(
-        api_key=os.environ["PINATA_API_KEY"],
-        secret_key=os.environ["PINATA_SECRET_KEY"],
+        jwt=os.environ["PINATA_JWT"],
+        gateway=os.environ["PINATA_GATEWAY"],
     )
 
     daemon = Daemon(contract=contract, ipfs=ipfs)

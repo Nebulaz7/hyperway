@@ -1,21 +1,19 @@
-import json
 import logging
 import requests
 
 logger = logging.getLogger(__name__)
 
 PINATA_PIN_URL = "https://api.pinata.cloud/pinning/pinJSONToIPFS"
-PINATA_FILE_URL = "https://api.pinata.cloud/pinning/pinFileToIPFS"
 IPFS_GATEWAY = "https://gateway.pinata.cloud/ipfs"
 
 TIMEOUT = 30  # seconds
 
 
 class IPFSClient:
-    def __init__(self, api_key: str, secret_key: str, gateway: str = IPFS_GATEWAY):
+    def __init__(self, jwt: str, gateway: str = IPFS_GATEWAY):
         self.headers = {
-            "pinata_api_key": api_key,
-            "pinata_secret_api_key": secret_key,
+            "Authorization": f"Bearer {jwt}",
+            "Content-Type": "application/json",
         }
         self.gateway = gateway.rstrip("/")
 
@@ -33,7 +31,7 @@ class IPFSClient:
             response = requests.post(
                 PINATA_PIN_URL,
                 json=payload,
-                headers={**self.headers, "Content-Type": "application/json"},
+                headers=self.headers,
                 timeout=TIMEOUT,
             )
             response.raise_for_status()
@@ -53,6 +51,7 @@ class IPFSClient:
         """
         url = f"{self.gateway}/{cid}"
         try:
+            # Downloads don't need auth — public gateway
             response = requests.get(url, timeout=TIMEOUT)
             response.raise_for_status()
             data = response.json()
@@ -95,7 +94,6 @@ class IPFSClient:
             return raw  # already a plain CID
 
         try:
-            # Strip 0x, decode hex to bytes, strip null padding, decode to string
             hex_str = raw[2:]
             decoded = bytes.fromhex(hex_str).rstrip(b"\x00").decode("utf-8")
             return decoded
