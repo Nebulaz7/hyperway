@@ -6,6 +6,7 @@ from contract import ContractClient
 from ipfs_client import IPFSClient
 import executor
 import state
+from supabase_reporter import SupabaseReporter
 
 logger = logging.getLogger(__name__)
 
@@ -18,11 +19,15 @@ class Daemon:
         self.contract = contract
         self.ipfs = ipfs
         self.last_block: int = 0
+        self.reporter: SupabaseReporter | None = None
 
     def run(self):
         """Main event loop — polls for JobAssigned events and processes them."""
         logger.info("Daemon starting up...")
         state.init_db()
+
+        # Initialise Supabase reporter (no-op if credentials absent)
+        self.reporter = SupabaseReporter(self.contract.address)
 
         # Retry any jobs that were mid-flight when the daemon last stopped
         self._retry_pending()
@@ -40,6 +45,10 @@ class Daemon:
 
     def _poll_once(self):
         """Single iteration: fetch new events and process each unseen job."""
+        # Emit a rate-limited heartbeat on every poll cycle
+        if self.reporter:
+            self.reporter.heartbeat()
+
         latest = self.contract.get_latest_block()
         if latest <= self.last_block:
             return
@@ -93,42 +102,68 @@ class Daemon:
         if attempts >= MAX_RETRIES:
             logger.error(f"Job {job_id}: max retries exceeded — marking FAILED")
             state.mark_failed(job_id, "max_retries_exceeded")
+            if self.reporter:
+                self.reporter.job_failed(job_id, "max_retries_exceeded")
             return
 
         state.increment_attempts(job_id)
 
+        if self.reporter:
+            self.reporter.job_init(job_id, spec_cid)
+
         # 1. Download job spec from IPFS
+        if self.reporter:
+            self.reporter.job_in_progress(job_id, "downloading_spec")
         spec = self.ipfs.download_json(spec_cid)
         if spec is None:
             logger.error(f"Job {job_id}: failed to download spec (CID={spec_cid})")
             state.mark_failed(job_id, "spec_download_failed")
+            if self.reporter:
+                self.reporter.job_failed(job_id, "spec_download_failed")
             return
 
         # 2. Execute compute
+        if self.reporter:
+            self.reporter.job_in_progress(job_id, "executing")
         try:
             result = executor.execute(job_id, spec)
         except Exception as e:
             logger.error(f"Job {job_id}: compute raised exception: {e}", exc_info=True)
             state.mark_failed(job_id, f"compute_error: {e}")
+            if self.reporter:
+                self.reporter.job_failed(job_id, f"compute_error: {e}")
             return
 
         # 3. Upload result to IPFS
+        if self.reporter:
+            self.reporter.job_in_progress(job_id, "uploading_result")
         result_cid = self.ipfs.upload_json(result, name=f"job-{job_id}-result")
         if result_cid is None:
             logger.error(f"Job {job_id}: failed to upload result to IPFS")
             state.mark_failed(job_id, "result_upload_failed")
+            if self.reporter:
+                self.reporter.job_failed(job_id, "result_upload_failed")
             return
 
         # 4. Generate proof and submit on-chain
+        if self.reporter:
+            self.reporter.job_in_progress(job_id, "submitting_proof")
         proof = executor.generate_proof(job_id, result_cid)
         tx_hash = self.contract.submit_proof(job_id, result_cid, proof)
         if tx_hash is None:
             logger.error(f"Job {job_id}: failed to submit proof on-chain")
             state.mark_failed(job_id, "proof_submission_failed")
+            if self.reporter:
+                self.reporter.job_failed(job_id, "proof_submission_failed")
             return
+
+        if self.reporter:
+            self.reporter.job_proof_tx(job_id, tx_hash)
 
         # 5. All done
         state.mark_completed(job_id, result_cid, tx_hash)
+        if self.reporter:
+            self.reporter.job_completed(job_id, result_cid, tx_hash)
         logger.info(
             f"Job {job_id}: COMPLETED — result CID: {result_cid}, tx: {tx_hash}"
         )
