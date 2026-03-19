@@ -34,7 +34,7 @@ export default function LandingHero() {
       id="home"
     >
       <div>
-        <div className="border-2 border-white mx-6 my-3 p-3 rounded-2xl">
+        <div className="border-1 border-white mx-6 my-3 p-3 rounded-2xl">
           {/* Subtle vignette */}
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,#050505_100%)]"></div>
 
