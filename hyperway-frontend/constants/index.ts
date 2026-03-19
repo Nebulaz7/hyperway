@@ -1,8 +1,8 @@
 export const HYPERWAY_CONTRACT_ADDRESS =
-  "0xfDecC74EEc6653D39f3eF462CccD8Fd89D6b00FB" as `0x${string}`;
+  "0xcA83D3a6Cb7B94e6A5eF3c84e103253d119CFA82" as `0x${string}`;
 
 export const FORWARDER_ADDRESS =
-  "0xbC871e3119160130459f00661305b1A3C6CE7811" as `0x${string}`;
+  "0xF79bfE82382D102de3D6404ca5074E1A9c31F6E0" as `0x${string}`;
 
 export const CHAIN_ID = 420420417;
 

@@ -16,5 +16,8 @@
   "type": "commonjs",
   "devDependencies": {
     "@acala-network/chopsticks": "^1.2.7"
+  },
+  "dependencies": {
+    "ethers": "^6.16.0"
   }
 }
