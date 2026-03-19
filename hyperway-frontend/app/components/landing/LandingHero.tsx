@@ -50,7 +50,7 @@ export default function LandingHero() {
             </div>
 
             {/* Title */}
-            <h1 className="leading-tight text-4xl sm:text-5xl md:text-6xl font-semibold tracking-tight max-w-4xl mx-auto">
+            <h1 className="leading-tight text-2xl md:text-6xl font-semibold tracking-tight max-w-4xl mx-auto">
               <span className="block h-[1.2em]">{typedText1}</span>
               <span className="block font-light text-white/60 h-[1.2em]">
                 {typedText2}
