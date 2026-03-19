@@ -5,12 +5,27 @@ import Solution from "./components/landing/Solution";
 import HowItWorks from "./components/landing/HowItWorks";
 import CTASection from "./components/landing/CTASection";
 import Footer from "./components/landing/Footer";
+import LightPillar from "@/components/LightPillar";
 
 export default function Home() {
   return (
     <main className="overflow-x-hidden w-full bg-[#050505] text-white antialiased min-h-screen font-sans selection:bg-violet-500/30 selection:text-violet-200">
       {/* Global Background Elements */}
-      <div className="fixed inset-0 pointer-events-none -z-10">
+      <div className="fixed inset-0 w-full h-full pointer-events-none z-0">
+        <LightPillar
+          topColor="#5227FF"
+          bottomColor="#FF9FFC"
+          intensity={0.4}
+          rotationSpeed={0.3}
+          interactive={false}
+          glowAmount={0.004}
+          pillarWidth={3}
+          pillarHeight={0.4}
+          noiseIntensity={0.5}
+          pillarRotation={15}
+        />
+      </div>
+      <div className="fixed inset-0 pointer-events-none z-0">
         {/* Top left deep purple glow */}
         <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] bg-violet-900/20 blur-[150px] rounded-full mix-blend-screen opacity-50" />
         {/* Bottom right blue glow */}

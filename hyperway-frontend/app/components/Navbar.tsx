@@ -12,6 +12,8 @@ const Navbar = () => {
   const pathname = usePathname();
   const { isConnected } = useAccount();
 
+  if (pathname === "/") return null;
+
   return (
     <header className="sticky top-0 z-30 border-b-[3px] border-purple-500 bg-[#0a0a0a]/90 backdrop-blur-md">
       <div className="flex justify-between items-center max-w-7xl mx-auto px-4 md:px-6 h-16">
