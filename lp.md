@@ -1085,7 +1085,7 @@ We respect your privacy. Unsubscribe anytime. No spam, ever.
 
 ### Colors
 
-**Primary Gradient:** `linear-gradient(135deg, #8B5CF6 0%, #3B82F6 100%)`  
+**Primary:** `oklch(62.7% 0.265 303.9)`  
 **Background Dark:** `#0A0A0F`  
 **Background Lighter:** `#1A1A24`  
 **Accent Purple:** `#8B5CF6`  
@@ -1182,3 +1182,5 @@ We respect your privacy. Unsubscribe anytime. No spam, ever.
 ---
 
 **This is everything you need for a killer landing page. Focus on hero, how it works, and CTAs first. Good luck!** 🚀
+
+Make sure you break the landing page code down to components
