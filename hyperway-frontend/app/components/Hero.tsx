@@ -14,7 +14,7 @@ const Hero = () => {
         <div className="relative z-10 flex items-center justify-center min-h-screen md:min-h-[80vh] p-6 md:p-12">
           <div className="w-full max-w-4xl mx-auto text-center">
             <h1 className="text-4xl md:text-5xl font-bold text-white mb-6 leading-tight">
-              Develop limitlessly, <br />
+              Develop limitlessly <br />
               Scalable Compute at Hyper-speed
               <span className="bg-[#f5f5f5] bg-clip-text text-transparent"></span>
             </h1>
