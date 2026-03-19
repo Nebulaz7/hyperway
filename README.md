@@ -380,7 +380,7 @@ This ensures the frontend can query jobs with full-text search, filtering, and s
 - **Foundry** (for smart contract compilation and deployment)
 - **MetaMask** configured for [Polkadot Hub Testnet](https://docs.polkadot.com/)
   - Chain ID: `420420417`
-  - RPC: `https://testnet-paseo-rpc.polkadot.io`
+  - RPC: `https://eth-rpc-testnet.polkadot.io/`
 
 ### 1. Clone the Repository
 
