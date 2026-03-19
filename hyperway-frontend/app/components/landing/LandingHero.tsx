@@ -50,7 +50,7 @@ export default function LandingHero() {
             </div>
 
             {/* Title */}
-            <h1 className="leading-tight text-2xl md:text-6xl font-semibold tracking-tight max-w-4xl mx-auto">
+            <h1 className="leading-tight text-3xl md:text-6xl font-semibold tracking-tight max-w-4xl mx-auto">
               <span className="block h-[1.2em]">{typedText1}</span>
               <span className="block font-light text-white/60 h-[1.2em]">
                 {typedText2}
@@ -67,7 +67,7 @@ export default function LandingHero() {
 
             {/* CTAs */}
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-10 mb-16">
-              <Link href="/marketplace">
+              <Link href="/connect">
                 <button className="group cursor-pointer relative text-sm sm:text-base font-semibold text-white bg-transparent border border-violet-500/50 rounded-md py-4 px-10 transition-all duration-300 hover:border-violet-400 hover:shadow-[0_0_20px_-5px_rgba(139,92,246,0.5)] overflow-hidden">
                   <span className="relative z-10 w-full flex justify-center items-center gap-2">
                     Launch App
