@@ -1,3 +1,4 @@
+import Homebar from "./components/landing/Homebar";
 import LandingHero from "./components/landing/LandingHero";
 import Problem from "./components/landing/Problem";
 import Solution from "./components/landing/Solution";
@@ -8,7 +9,6 @@ import Footer from "./components/landing/Footer";
 export default function Home() {
   return (
     <main className="overflow-x-hidden w-full bg-[#050505] text-white antialiased min-h-screen font-sans selection:bg-violet-500/30 selection:text-violet-200">
-      
       {/* Global Background Elements */}
       <div className="fixed inset-0 pointer-events-none -z-10">
         {/* Top left deep purple glow */}
@@ -18,6 +18,7 @@ export default function Home() {
       </div>
 
       <div className="relative z-10">
+        <Homebar />
         <LandingHero />
         <Problem />
         <Solution />

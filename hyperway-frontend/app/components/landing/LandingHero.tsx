@@ -30,7 +30,7 @@ export default function LandingHero() {
 
   return (
     <section
-      className="relative overflow-x-hidden overflow-y-visible pt-4 pb-20 md:pt-10 md:pb-32"
+      className="relative overflow-x-hidden overflow-y-visible mt-14 pt-16 pb-20 md:pt-10 md:pb-32"
       id="home"
     >
       <div>
