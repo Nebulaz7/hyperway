@@ -165,14 +165,13 @@ export default function JobDetailPage() {
   };
 
   const validBuyer = (job as any)?.buyer_address || (job as any)?.buyer || "";
-  const validProvider = (job as any)?.provider_address || (job as any)?.provider || "";
+  const validProvider =
+    (job as any)?.provider_address || (job as any)?.provider || "";
 
-  const isBuyer =
-    address && validBuyer.toLowerCase() === address.toLowerCase();
+  const isBuyer = address && validBuyer.toLowerCase() === address.toLowerCase();
   const isAssignedToMe =
     address && validProvider.toLowerCase() === address.toLowerCase();
-  const canClaim =
-    !!isProviderData && job?.status === "PENDING" && !isBuyer;
+  const canClaim = !!isProviderData && job?.status === "PENDING" && !isBuyer;
 
   // ══════════════════════════════════════════════
   //  RENDER
@@ -220,7 +219,8 @@ export default function JobDetailPage() {
                     Job #{job.job_id}
                   </h2>
                   <p className="text-gray-500 text-sm">
-                    Posted by {truncateAddress(validBuyer)} · {timeAgo(job.created_at)}
+                    Posted by {truncateAddress(validBuyer)} ·{" "}
+                    {timeAgo(job.created_at)}
                   </p>
                 </div>
               </div>
@@ -241,7 +241,15 @@ export default function JobDetailPage() {
                       {job.spec_cid}
                     </p>
                   </div>
-
+                  {/* <div className="mt-4 flex items-right justify-end">
+                    <Link
+                      href={`https://${process.env.NEXT_PUBLIC_PINATA_GATEWAY}/${job.spec_cid}`}
+                      target="_blank"
+                      className="neo-btn bg-purple-600 text-white"
+                    >
+                      View Spec
+                    </Link>
+                  </div> */}
                   {job.result_cid && (
                     <div className="p-4 rounded-xl bg-[#0a0a0a] border-2 border-green-800 mt-4">
                       <p className="text-[10px] text-gray-600 uppercase font-bold mb-2">
@@ -265,7 +273,9 @@ export default function JobDetailPage() {
                     />
                     <MetricCell
                       label="Compute Time"
-                      value={computeTimeLabel((job as any).compute_units || 3600)}
+                      value={computeTimeLabel(
+                        (job as any).compute_units || 3600,
+                      )}
                     />
                     <MetricCell
                       label="Payment Type"
@@ -480,12 +490,19 @@ export default function JobDetailPage() {
                       />
                       <SummaryRow
                         label="Compute"
-                        value={computeTimeLabel((job as any).compute_units || 3600)}
+                        value={computeTimeLabel(
+                          (job as any).compute_units || 3600,
+                        )}
                       />
-                      <SummaryRow label="Status" value={STATUS_CONFIG[job.status].label} />
+                      <SummaryRow
+                        label="Status"
+                        value={STATUS_CONFIG[job.status].label}
+                      />
                       <SummaryRow
                         label="Type"
-                        value={(job as any).is_xcm_payment ? "XCM 🔗" : "Direct"}
+                        value={
+                          (job as any).is_xcm_payment ? "XCM 🔗" : "Direct"
+                        }
                       />
                     </div>
                   </div>

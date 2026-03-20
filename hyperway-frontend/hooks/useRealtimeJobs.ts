@@ -259,7 +259,7 @@ export function useRealtimeStats() {
       const { data } = await supabase
         .from("marketplace_stats")
         .select("*")
-        .eq("id", true)
+        .limit(1)
         .single();
 
       if (data) setStats(data);
