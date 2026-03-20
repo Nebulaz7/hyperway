@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="hyperway-frontend/app/favicon.ico" width="80" alt="Hyperway Logo" />
+  <img src="hyperway-frontend/public/hyperway-logo.png" width="80" alt="Hyperway Logo" />
 </p>
 
 <h1 align="center">Hyperway</h1>
@@ -46,15 +46,15 @@ Unlike centralized GPU marketplaces (Lambda, RunPod, Vast.ai), Hyperway eliminat
 
 ### Key Highlights
 
-| Feature | Description |
-|---|---|
-| 🔐 **Smart Contract Escrow** | Buyer funds are locked until proof-of-compute is verified |
-| 🌐 **XCM Cross-Chain Payments** | Pay from any parachain via raw XCM V5 instructions (precompile `0xA0000`) |
-| 💵 **Native USDT Payments** | Accept Polkadot-native USDT (Asset ID 1984) via the Assets precompile |
-| ⚡ **Gasless Meta-Transactions** | Zero-gas job submission via OpenZeppelin ERC2771 forwarder |
-| 🗄️ **IPFS Job Specs** | Decentralized storage of job specifications and compute results |
-| 📊 **Real-Time Dashboard** | Live marketplace stats, job tracking, and provider management |
-| 🛡️ **Slashing & Disputes** | Provider collateral is at risk — automated timeout slashing + dispute resolution |
+| Feature                          | Description                                                                      |
+| -------------------------------- | -------------------------------------------------------------------------------- |
+| 🔐 **Smart Contract Escrow**     | Buyer funds are locked until proof-of-compute is verified                        |
+| 🌐 **XCM Cross-Chain Payments**  | Pay from any parachain via raw XCM V5 instructions (precompile `0xA0000`)        |
+| 💵 **Native USDT Payments**      | Accept Polkadot-native USDT (Asset ID 1984) via the Assets precompile            |
+| ⚡ **Gasless Meta-Transactions** | Zero-gas job submission via OpenZeppelin ERC2771 forwarder                       |
+| 🗄️ **IPFS Job Specs**            | Decentralized storage of job specifications and compute results                  |
+| 📊 **Real-Time Dashboard**       | Live marketplace stats, job tracking, and provider management                    |
+| 🛡️ **Slashing & Disputes**       | Provider collateral is at risk — automated timeout slashing + dispute resolution |
 
 ---
 
@@ -113,12 +113,14 @@ The AI compute market is experiencing explosive growth, yet it remains dominated
 Hyperway is strategically built for **Track 2: PVM Smart Contracts** on Polkadot Hub, leveraging native runtime features that extend beyond standard EVM capabilities:
 
 ### Native Asset Integration (Category 2)
-Hyperway implements deep integration with **Polkadot Native USDT (Asset ID 1984)**. By utilizing the deterministic Assets precompile, the marketplace facilitates trustless escrow using the canonical asset managed by the Polkadot Assets pallet. 
+
+Hyperway implements deep integration with **Polkadot Native USDT (Asset ID 1984)**. By utilizing the deterministic Assets precompile, the marketplace facilitates trustless escrow using the canonical asset managed by the Polkadot Assets pallet.
 
 - **Direct Accessibility:** No wrapped versions or bridges; the contract interacts directly with the system-level asset.
 - **ERC-20 Compatibility:** Utilizes the native ERC-20 interface exposed by Polkadot Hub for seamless integration with existing Solidity patterns.
 
 ### Polkadot Native Functionality via Precompiles (Category 3)
+
 We utilize Polkadot Hub’s specialized precompiles to achieve cross-chain interoperability and deterministic account mapping:
 
 - **XCM V5 Precompile (`0xA0000`):** Enables cross-chain payment settlement using raw, SCALE-encoded XCM instructions. This allows users to pay for compute using assets located on other parachains.
@@ -245,12 +247,12 @@ function submitJobWithXCM(...)  external whenNotPaused nonReentrant { ... }
 
 ### Composition Summary
 
-| Library | Non-Trivial Usage |
-|---|---|
-| `ERC2771Context` | Gasless meta-transaction relay with diamond inheritance resolution for `_msgSender()` across Ownable + Pausable |
-| `ReentrancyGuard` | Guards 5 functions that perform multi-transfer escrow operations (provider + fee split) |
-| `Ownable` | Fee governance with hard-coded 10% cap, dispute resolution, emergency controls |
-| `Pausable` | Granular circuit-breaker on 4 state-changing functions without affecting withdrawals |
+| Library           | Non-Trivial Usage                                                                                               |
+| ----------------- | --------------------------------------------------------------------------------------------------------------- |
+| `ERC2771Context`  | Gasless meta-transaction relay with diamond inheritance resolution for `_msgSender()` across Ownable + Pausable |
+| `ReentrancyGuard` | Guards 5 functions that perform multi-transfer escrow operations (provider + fee split)                         |
+| `Ownable`         | Fee governance with hard-coded 10% cap, dispute resolution, emergency controls                                  |
+| `Pausable`        | Granular circuit-breaker on 4 state-changing functions without affecting withdrawals                            |
 
 ---
 
@@ -326,11 +328,11 @@ PENDING → ASSIGNED → COMPLETED
 
 **Three Payment Methods:**
 
-| Method | Function | Token | Mechanism |
-|---|---|---|---|
-| Native DOT | `submitJob()` | DOT | `msg.value` escrow |
-| Native USDT | `submitJobWithUSDT()` | USDT (Asset ID 1984) | ERC-20 `transferFrom` via precompile |
-| XCM Cross-Chain | `submitJobWithXCM()` | Any supported asset | Raw V5 `execute()` via XCM precompile |
+| Method          | Function              | Token                | Mechanism                             |
+| --------------- | --------------------- | -------------------- | ------------------------------------- |
+| Native DOT      | `submitJob()`         | DOT                  | `msg.value` escrow                    |
+| Native USDT     | `submitJobWithUSDT()` | USDT (Asset ID 1984) | ERC-20 `transferFrom` via precompile  |
+| XCM Cross-Chain | `submitJobWithXCM()`  | Any supported asset  | Raw V5 `execute()` via XCM precompile |
 
 ---
 
@@ -340,14 +342,14 @@ Built with **Next.js 16**, **React 19**, **Wagmi v2**, and **RainbowKit** for wa
 
 ### Pages
 
-| Page | Description |
-|---|---|
-| `/marketplace` | Browse all jobs, filter by status, claim jobs as provider |
-| `/submit-job` | Full job creation wizard with USDT/DOT/XCM payment selection |
-| `/dashboard` | Provider workspace — manage assigned jobs, submit proofs |
-| `/provider-dashboard` | Register as provider, manage stake, view reputation |
-| `/my-jobs` | Buyer view — track submitted jobs and their status |
-| `/connect` | Wallet connection page with MetaMask/WalletConnect |
+| Page                  | Description                                                  |
+| --------------------- | ------------------------------------------------------------ |
+| `/marketplace`        | Browse all jobs, filter by status, claim jobs as provider    |
+| `/submit-job`         | Full job creation wizard with USDT/DOT/XCM payment selection |
+| `/dashboard`          | Provider workspace — manage assigned jobs, submit proofs     |
+| `/provider-dashboard` | Register as provider, manage stake, view reputation          |
+| `/my-jobs`            | Buyer view — track submitted jobs and their status           |
+| `/connect`            | Wallet connection page with MetaMask/WalletConnect           |
 
 ### Design Language
 
@@ -385,7 +387,7 @@ This ensures the frontend can query jobs with full-text search, filtering, and s
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/your-org/hyperway.git
+git clone https://github.com/Nebulaz7/hyperway.git
 cd hyperway
 ```
 
@@ -441,47 +443,50 @@ npm run start:dev
 
 ### Environment Variables
 
-| Variable | Description |
-|---|---|
-| `NEXT_PUBLIC_CONTRACT_ADDRESS` | Deployed HyperwayMarketplace address |
-| `NEXT_PUBLIC_CHAIN_ID` | `420420417` (Polkadot Hub Testnet) |
-| `PINATA_JWT` | Pinata API key for IPFS uploads |
-| `NEXT_PUBLIC_PINATA_GATEWAY` | Pinata gateway domain |
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key |
-| `RELAY_PRIVATE_KEY` | Relayer wallet private key (for gasless transactions) |
+| Variable                        | Description                                           |
+| ------------------------------- | ----------------------------------------------------- |
+| `NEXT_PUBLIC_CONTRACT_ADDRESS`  | Deployed HyperwayMarketplace address                  |
+| `NEXT_PUBLIC_CHAIN_ID`          | `420420417` (Polkadot Hub Testnet)                    |
+| `PINATA_JWT`                    | Pinata API key for IPFS uploads                       |
+| `NEXT_PUBLIC_PINATA_GATEWAY`    | Pinata gateway domain                                 |
+| `NEXT_PUBLIC_SUPABASE_URL`      | Supabase project URL                                  |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key                                |
+| `RELAY_PRIVATE_KEY`             | Relayer wallet private key (for gasless transactions) |
 
 ---
 
 ## Demo & Screenshots
 
-> 📹 **Demo Video:** [Coming Soon — will be added before submission deadline]
+> 📹 **Demo Video:** [https://youtu.be/-OUbqGwyobY](https://youtu.be/-OUbqGwyobY)
 
 ### Marketplace
+
 Browse available GPU compute jobs, view providers, and claim work.
 
 ### Submit Job
+
 Full-featured job submission with USDT/DOT payment toggle, XCM option, and gasless meta-transactions.
 
 ### Provider Dashboard
+
 Register as a provider, stake collateral, manage GPU availability, and track reputation.
 
 ---
 
 ## Roadmap
 
-| Phase | Milestone | Status |
-|---|---|---|
-| ✅ Phase 1 | Smart contract with escrow, staking, slashing | Complete |
-| ✅ Phase 2 | Next.js frontend with marketplace UI | Complete |
-| ✅ Phase 3 | XCM cross-chain payments via precompile | Complete |
-| ✅ Phase 4 | Native USDT integration (Asset ID 1984) | Complete |
-| ✅ Phase 5 | Gasless meta-transactions (ERC2771) | Complete |
-| ✅ Phase 6 | NestJS event indexer + Supabase | Complete |
-| 🔜 Phase 7 | On-chain proof verification (ZK proofs) | Planned |
-| 🔜 Phase 8 | DAO governance for dispute resolution | Planned |
-| 🔜 Phase 9 | Multi-GPU job orchestration | Planned |
-| 🔜 Phase 10 | Provider auto-matching algorithm | Planned |
+| Phase       | Milestone                                     | Status   |
+| ----------- | --------------------------------------------- | -------- |
+| ✅ Phase 1  | Smart contract with escrow, staking, slashing | Complete |
+| ✅ Phase 2  | Next.js frontend with marketplace UI          | Complete |
+| ✅ Phase 3  | XCM cross-chain payments via precompile       | Complete |
+| ✅ Phase 4  | Native USDT integration (Asset ID 1984)       | Complete |
+| ✅ Phase 5  | Gasless meta-transactions (ERC2771)           | Complete |
+| ✅ Phase 6  | NestJS event indexer + Supabase               | Complete |
+| 🔜 Phase 7  | On-chain proof verification (ZK proofs)       | Planned  |
+| 🔜 Phase 8  | DAO governance for dispute resolution         | Planned  |
+| 🔜 Phase 9  | Multi-GPU job orchestration                   | Planned  |
+| 🔜 Phase 10 | Provider auto-matching algorithm              | Planned  |
 
 ---
 
@@ -503,14 +508,14 @@ We chose Polkadot Hub specifically because of its **unique advantages** that no 
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Smart Contracts | Solidity 0.8.28, Foundry, OpenZeppelin Contracts v5 |
-| Frontend | Next.js 16, React 19, Wagmi v2, RainbowKit, Framer Motion |
-| Backend | NestJS, Supabase (PostgreSQL + Realtime) |
-| Storage | IPFS (Pinata) |
-| Chain | Polkadot Hub (Chain ID 420420417 testnet) |
-| Tooling | Foundry (forge, cast, anvil), WSL for deployment |
+| Layer           | Technology                                                |
+| --------------- | --------------------------------------------------------- |
+| Smart Contracts | Solidity 0.8.28, Foundry, OpenZeppelin Contracts v5       |
+| Frontend        | Next.js 16, React 19, Wagmi v2, RainbowKit, Framer Motion |
+| Backend         | NestJS, Supabase (PostgreSQL + Realtime)                  |
+| Storage         | IPFS (Pinata)                                             |
+| Chain           | Polkadot Hub (Chain ID 420420417 testnet)                 |
+| Tooling         | Foundry (forge, cast, anvil), WSL for deployment          |
 
 ---
 
