@@ -137,7 +137,7 @@ export default function ProviderDashboardPage() {
       const { data, error } = await supabase
         .from("jobs")
         .select("*")
-        .eq("provider", address.toLowerCase())
+        .eq("provider_address", address.toLowerCase())
         .order("created_at", { ascending: false });
 
       if (!error && data) {
@@ -167,7 +167,7 @@ export default function ProviderDashboardPage() {
           event: "*",
           schema: "public",
           table: "jobs",
-          filter: `provider=eq.${address.toLowerCase()}`,
+          filter: `provider_address=eq.${address.toLowerCase()}`,
         },
         (payload) => {
           fetchMyJobs(); // Re-fetch all on change for simplicity
