@@ -258,7 +258,77 @@ function submitJobWithXCM(...)  external whenNotPaused nonReentrant { ... }
 
 ## Architecture
 
+```mermaid
+graph TD
+    classDef user fill:#6c2bd9,stroke:#fff,stroke-width:2px,color:#fff;
+    classDef client fill:#000000,stroke:#fff,stroke-width:2px,color:#fff;
+    classDef indexer fill:#e0234e,stroke:#fff,stroke-width:2px,color:#fff;
+    classDef contract fill:#E6007A,stroke:#fff,stroke-width:2px,color:#fff;
+    classDef precompile fill:#2d3748,stroke:#E6007A,stroke-width:2px,color:#fff;
+    classDef storage fill:#38bdf8,stroke:#fff,stroke-width:2px,color:#fff;
+
+    Buyer["🧑‍💻 AI Buyer"]:::user
+    Provider["🖥️ GPU Provider"]:::user
+    
+    UI["Next.js 16 dApp"]:::client
+    Relay["Gasless Relayer API (/api/relay)"]:::client
+    
+    IPFS["IPFS (Pinata)"]:::storage
+    Nest["NestJS Event Indexer"]:::indexer
+    DB["Supabase Realtime Postgres"]:::indexer
+
+    Fwd["ERC2771 Forwarder"]:::contract
+    Market["Hyperway Marketplace"]:::contract
+
+    Assets["Assets Precompile Native USDT"]:::precompile
+    System["System Precompile Account Mapping"]:::precompile
+    XCM["XCM Precompile Cross-Chain"]:::precompile
+
+    Buyer -->|1. Sign job spec| UI
+    UI -->|2. Upload metadata| IPFS
+    UI -->|3. Send EIP-712 Sign| Relay
+    
+    Relay -->|4. Submit Meta-Tx pays Gas| Fwd
+    Buyer -.->|Direct Tx optional| Market
+    Fwd -->|5. Forward Original Sender| Market
+
+    Market -->|Verify USDT| Assets
+    Market -->|Convert H160| System
+    Market -->|Execute Msg| XCM
+
+    Market -.->|Emit Blockchain Events| Nest
+    Nest -->|Index Data| DB
+    DB -.->|Websocket Real-time Sync| UI
+
+    Provider -->|6. Claim Job| UI
+    Provider -->|7. Fetch Job Specs| IPFS
+    Provider -->|8. Upload Result CID| IPFS
+    Provider -->|9. Submit Proof Escrow| Market
+    Market -.->|Release Funds deduction| Provider
+
+    subgraph Frontend["Frontend Layer"]
+        UI
+        Relay
+    end
+
+    subgraph Services["Off-Chain Services"]
+        IPFS
+        Nest
+        DB
+    end
+
+    subgraph OnChain["On-Chain Polkadot Hub Testnet"]
+        Fwd
+        Market
+        Assets
+        System
+        XCM
+    end
 ```
+
+### Directory Structure
+
+```text
 hyperway/
 ├── hyperway-contracts/          # Solidity smart contracts (Foundry)
 │   ├── src/
